@@ -13,6 +13,7 @@ from baselines.a2c.utils import cat_entropy_softmax
 from baselines.a2c.utils import EpisodeStats
 from baselines.a2c.utils import get_by_index, check_shape, avg_norm, gradient_add, q_explained_variance
 from baselines.acer.buffer import Buffer
+from baselines.acer import models
 
 # remove last step
 def strip(var, nenvs, nsteps, flat = False):
@@ -71,8 +72,8 @@ class Model(object):
         LR = tf.placeholder(tf.float32, [])
         eps = 1e-6
 
-        step_model = policy(sess, ob_space, ac_space, nenvs, 1, nstack, reuse=False)
-        train_model = policy(sess, ob_space, ac_space, nenvs, nsteps + 1, nstack, reuse=True)
+        step_model = policy(sess, ob_space, ac_space, nenvs, 1, nstack, reuse=False)  # type: models.Model
+        train_model = policy(sess, ob_space, ac_space, nenvs, nsteps + 1, nstack, reuse=True)  # type: models.Model
 
         params = find_trainable_variables("model")
         print("Params {}".format(len(params)))
@@ -89,7 +90,7 @@ class Model(object):
             return v
 
         with tf.variable_scope("", custom_getter=custom_getter, reuse=True):
-            polyak_model = policy(sess, ob_space, ac_space, nenvs, nsteps + 1, nstack, reuse=True)
+            polyak_model = policy(sess, ob_space, ac_space, nenvs, nsteps + 1, nstack, reuse=True)  # type: models.Model
 
         # Notation: (var) = batch variable, (var)s = seqeuence variable, (var)_i = variable index by action at step i
         v = tf.reduce_sum(train_model.pi * train_model.q, axis = -1) # shape is [nenvs * (nsteps + 1)]
@@ -212,6 +213,13 @@ class Model(object):
 
 class Runner(object):
     def __init__(self, env, model, nsteps, nstack):
+        """
+
+        :param baselines.common.vec_env.subproc_vec_env.SubprocVecEnv env:
+        :param Model model:
+        :param int nsteps:
+        :param int nstack:
+        """
         self.env = env
         self.nstack = nstack
         self.model = model
@@ -271,6 +279,13 @@ class Runner(object):
 
 class Acer():
     def __init__(self, runner, model, buffer, log_interval):
+        """
+
+        :param Runner runner:
+        :param Model model:
+        :param Buffer buffer:
+        :param int log_interval:
+        """
         self.runner = runner
         self.model = model
         self.buffer = buffer

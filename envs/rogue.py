@@ -48,8 +48,7 @@ class RogueEnv(gym.Env):
 
     def reset(self):
         self.rb.reset()
-        state = np.expand_dims(self.rb.state, axis=0)
-        return state
+        return self.rb.state
 
     def close(self):
         self.rb.stop()
@@ -64,7 +63,7 @@ class RogueEnv(gym.Env):
         """
         command = self.actions[action]
         reward, new_state, won, lost = self.rb.send_command(command)
-        return np.expand_dims(new_state, axis=0), reward, won or lost, self.rb.get_last_frame()
+        return new_state, reward, won or lost, self.rb.get_last_frame()
 
     def stats(self):
         return self.rb.evaluator.statistics()
