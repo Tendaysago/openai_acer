@@ -3,37 +3,73 @@ from multiprocessing import Process, Pipe
 from baselines.common.vec_env import VecEnv, CloudpickleWrapper
 
 
-def worker(remote, parent_remote, env_fn_wrapper):
-    parent_remote.close()
-    env = env_fn_wrapper.x()
-    while True:
-        cmd, data = remote.recv()
+class CloseCommand(Exception):
+    pass
+
+
+class CommandHandler:
+    def __init__(self, env):
+        """
+
+        :param gym.Env env:
+        """
+        self.env = env
+
+    def cmd(self, cmd, data):
+        env = self.env
         if cmd == 'step':
             ob, reward, done, info = env.step(data)
             if done:
                 ob = env.reset()
-            remote.send((ob, reward, done, info))
+            return (ob, reward, done, info)
         elif cmd == 'reset':
             ob = env.reset()
-            remote.send(ob)
+            return ob
         elif cmd == 'reset_task':
             ob = env.reset_task()
-            remote.send(ob)
+            return ob
         elif cmd == 'close':
-            remote.close()
-            break
+            raise CloseCommand
         elif cmd == 'get_spaces':
-            remote.send((env.observation_space, env.action_space))
-        elif cmd == 'stats':
-            if hasattr(env.unwrapped, 'stats'):
-                remote.send(env.unwrapped.stats())
-            else:
-                remote.send({})
+            return (env.observation_space, env.action_space)
         else:
-            raise NotImplementedError
+            raise NotImplementedError('unknown command "%s" with data %s' % (cmd, data))
+
+
+class WorkerProcess(Process):
+
+    CmdHandlerClass = CommandHandler
+
+    def __init__(self, remote, parent_remote, env_fn_wrapper, group=None, name=None):
+        """
+
+        :param Pipe work_remote:
+        :param Pipe remote:
+        :param env_fn_wrapper:
+        :param group:
+        :param name:
+        """
+        super().__init__(group=group, name=name)
+        parent_remote.close()
+        self.env = env_fn_wrapper.x()
+        self.remote = remote
+        self.cmd_handler = self.CmdHandlerClass(self.env)
+
+    def run(self):
+        while True:
+            cmd, data = self.remote.recv()
+            try:
+                res = self.cmd_handler.cmd(cmd, data)
+                self.remote.send(res)
+            except CloseCommand:
+                self.remote.close()
+                break
 
 
 class SubprocVecEnv(VecEnv):
+
+    WorkerClass = WorkerProcess
+
     def __init__(self, env_fns, spaces=None):
         """
         envs: list of gym environments to run in subprocesses
@@ -42,7 +78,7 @@ class SubprocVecEnv(VecEnv):
         self.closed = False
         nenvs = len(env_fns)
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
-        self.ps = [Process(target=worker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+        self.ps = [self.WorkerClass(work_remote, remote, CloudpickleWrapper(env_fn))
             for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
         for p in self.ps:
             p.daemon = True # if the main process crashes, we should not cause things to hang
@@ -74,11 +110,6 @@ class SubprocVecEnv(VecEnv):
         for remote in self.remotes:
             remote.send(('reset_task', None))
         return np.stack([remote.recv() for remote in self.remotes])
-
-    def stats(self):
-        for remote in self.remotes:
-            remote.send(('stats', None))
-        return [remote.recv() for remote in self.remotes]
 
     def close(self):
         if self.closed:

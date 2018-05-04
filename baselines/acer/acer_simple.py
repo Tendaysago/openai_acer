@@ -215,7 +215,7 @@ class Runner(object):
     def __init__(self, env, model, nsteps, nstack):
         """
 
-        :param baselines.common.vec_env.subproc_vec_env.SubprocVecEnv env:
+        :param baselines.common.vec_env.VecEnv env:
         :param Model model:
         :param int nsteps:
         :param int nstack:
@@ -224,7 +224,7 @@ class Runner(object):
         self.nstack = nstack
         self.model = model
         nh, nw, nc = env.observation_space.shape
-        self.nc = nc  # nc = 1 for atari, but just in case
+        self.nc = nc
         self.nenv = nenv = env.num_envs
         self.nact = env.action_space.n
         self.nbatch = nenv * nsteps
@@ -342,17 +342,18 @@ class Acer():
             logger.dump_tabular()
 
         if on_policy and (int(steps/runner.nbatch) % self.stats_interval == 0):
-            envs_stats = self.runner.env.stats()
-            avg_stats = {}
-            for key in envs_stats[0].keys():
-                avg_stats[key] = 0
-            for stats in envs_stats:
-                for key, val in stats.items():
-                    avg_stats[key] += val
-            for key, val in avg_stats.items():
-                avg_stats[key] = val / len(envs_stats)
-            avg_stats['global_t'] = steps
-            self.stats_logger.info(' '.join('%s=%s' % (key, val) for key, val in avg_stats.items()))
+            if hasattr(self.runner.env, 'stats'):
+                envs_stats = self.runner.env.stats()
+                avg_stats = {}
+                for key in envs_stats[0].keys():
+                    avg_stats[key] = 0
+                for stats in envs_stats:
+                    for key, val in stats.items():
+                        avg_stats[key] += val
+                for key, val in avg_stats.items():
+                    avg_stats[key] = val / len(envs_stats)
+                avg_stats['global_t'] = steps
+                self.stats_logger.info(' '.join('%s=%s' % (key, val) for key, val in avg_stats.items()))
 
 
 def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_coef=0.5, ent_coef=0.01,
@@ -367,9 +368,8 @@ def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_c
     nenvs = env.num_envs
     ob_space = env.observation_space
     ac_space = env.action_space
-    num_procs = len(env.remotes) # HACK
     model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, nstack=nstack,
-                  num_procs=num_procs, ent_coef=ent_coef, q_coef=q_coef, gamma=gamma,
+                  num_procs=nenvs, ent_coef=ent_coef, q_coef=q_coef, gamma=gamma,
                   max_grad_norm=max_grad_norm, lr=lr, rprop_alpha=rprop_alpha, rprop_epsilon=rprop_epsilon,
                   total_timesteps=total_timesteps, lrschedule=lrschedule, c=c,
                   trust_region=trust_region, alpha=alpha, delta=delta)
