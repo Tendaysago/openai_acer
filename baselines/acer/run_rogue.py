@@ -39,7 +39,6 @@ def make_rogue_env(num_env, start_index=0):
     def make_env(rank):
         def _thunk():
             env = gym.make('Rogue-v1')
-            env = RogueMonitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)))
             return env
         return _thunk
     return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])

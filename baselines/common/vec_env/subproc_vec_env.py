@@ -24,6 +24,11 @@ def worker(remote, parent_remote, env_fn_wrapper):
             break
         elif cmd == 'get_spaces':
             remote.send((env.observation_space, env.action_space))
+        elif cmd == 'stats':
+            if hasattr(env.unwrapped, 'stats'):
+                remote.send(env.unwrapped.stats())
+            else:
+                remote.send({})
         else:
             raise NotImplementedError
 
@@ -69,6 +74,11 @@ class SubprocVecEnv(VecEnv):
         for remote in self.remotes:
             remote.send(('reset_task', None))
         return np.stack([remote.recv() for remote in self.remotes])
+
+    def stats(self):
+        for remote in self.remotes:
+            remote.send(('stats', None))
+        return [remote.recv() for remote in self.remotes]
 
     def close(self):
         if self.closed:

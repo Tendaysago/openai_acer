@@ -1,12 +1,12 @@
 import time
 import joblib
+import logging
 import os.path as osp
 import numpy as np
 import tensorflow as tf
+
 from baselines import logger
-
 from baselines.common import set_global_seeds
-
 from baselines.a2c.utils import batch_to_seq, seq_to_batch
 from baselines.a2c.utils import Scheduler, make_path, find_trainable_variables
 from baselines.a2c.utils import cat_entropy_softmax
@@ -278,13 +278,14 @@ class Runner(object):
         return enc_obs, mb_obs, mb_actions, mb_rewards, mb_mus, mb_dones, mb_masks
 
 class Acer():
-    def __init__(self, runner, model, buffer, log_interval):
+    def __init__(self, runner, model, buffer, log_interval, stats_interval):
         """
 
         :param Runner runner:
         :param Model model:
         :param Buffer buffer:
         :param int log_interval:
+        :param int stats_interval:
         """
         self.runner = runner
         self.model = model
@@ -293,6 +294,17 @@ class Acer():
         self.tstart = None
         self.episode_stats = EpisodeStats(runner.nsteps, runner.nenv)
         self.steps = None
+
+        file_formatter = logging.Formatter('%(asctime)s %(message)s')
+        stats_logger = logging.getLogger('stats_logger')
+        stats_logger.setLevel(logging.INFO)
+        # logger handlers
+        stats_fh = logging.FileHandler(osp.join(logger.get_dir(), 'results.log'))
+        stats_fh.setFormatter(file_formatter)
+        stats_logger.addHandler(stats_fh)
+
+        self.stats_logger = stats_logger
+        self.stats_interval = stats_interval
 
     def call(self, on_policy):
         runner, model, buffer, steps = self.runner, self.model, self.buffer, self.steps
@@ -329,10 +341,23 @@ class Acer():
                 logger.record_tabular(name, float(val))
             logger.dump_tabular()
 
+        if on_policy and (int(steps/runner.nbatch) % self.stats_interval == 0):
+            envs_stats = self.runner.env.stats()
+            avg_stats = {}
+            for key in envs_stats[0].keys():
+                avg_stats[key] = 0
+            for stats in envs_stats:
+                for key, val in stats.items():
+                    avg_stats[key] += val
+            for key, val in avg_stats.items():
+                avg_stats[key] = val / len(envs_stats)
+            avg_stats['global_t'] = steps
+            self.stats_logger.info(' '.join('%s=%s' % (key, val) for key, val in avg_stats.items()))
+
 
 def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_coef=0.5, ent_coef=0.01,
           max_grad_norm=10, lr=7e-4, lrschedule='linear', rprop_epsilon=1e-5, rprop_alpha=0.99, gamma=0.99,
-          log_interval=100, buffer_size=50000, replay_ratio=4, replay_start=10000, c=10.0,
+          log_interval=100, stats_interval=1, buffer_size=50000, replay_ratio=4, replay_start=10000, c=10.0,
           trust_region=True, alpha=0.99, delta=1):
     print("Running Acer Simple")
     print(locals())
@@ -355,7 +380,7 @@ def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_c
     else:
         buffer = None
     nbatch = nenvs*nsteps
-    acer = Acer(runner, model, buffer, log_interval)
+    acer = Acer(runner, model, buffer, log_interval, stats_interval)
     acer.tstart = time.time()
     for acer.steps in range(0, total_timesteps, nbatch): #nbatch samples, 1 on_policy call and multiple off-policy calls
         acer.call(on_policy=True)
