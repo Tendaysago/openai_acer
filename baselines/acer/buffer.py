@@ -40,15 +40,15 @@ class Buffer(object):
         obs = np.zeros([nstack, nsteps + nstack, nenv, nh, nw, nc], dtype=np.uint8)
         x = np.reshape(enc_obs, [nenv, nsteps + nstack, nh, nw, nc]).swapaxes(1,
                                                                               0)  # [nsteps + nstack, nenv, nh, nw, nc]
-        y[3:] = np.reshape(1.0 - dones, [nenv, nsteps, 1, 1, 1]).swapaxes(1, 0)  # keep
-        y[:3] = 1.0
+        y[nstack - 1:] = np.reshape(1.0 - dones, [nenv, nsteps, 1, 1, 1]).swapaxes(1, 0)  # keep
+        y[:nstack - 1] = 1.0
         # y = np.reshape(1 - dones, [nenvs, nsteps, 1, 1, 1])
         for i in range(nstack):
             obs[-(i + 1), i:] = x
             # obs[:,i:,:,:,-(i+1),:] = x
             x = x[:-1] * y
             y = y[1:]
-        return np.reshape(obs[:, 3:].transpose((2, 1, 3, 4, 0, 5)), [nenv, (nsteps + 1), nh, nw, nstack * nc])
+        return np.reshape(obs[:, nstack - 1:].transpose((2, 1, 3, 4, 0, 5)), [nenv, (nsteps + 1), nh, nw, nstack * nc])
 
     def put(self, enc_obs, actions, rewards, mus, dones, masks):
         # enc_obs [nenv, (nsteps + nstack), nh, nw, nc]
