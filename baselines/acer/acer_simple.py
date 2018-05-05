@@ -7,8 +7,9 @@ import tensorflow as tf
 
 from baselines import logger
 from baselines.common import set_global_seeds
+from baselines.common import tf_decay
 from baselines.a2c.utils import batch_to_seq, seq_to_batch
-from baselines.a2c.utils import Scheduler, make_path, find_trainable_variables
+from baselines.a2c.utils import make_path, find_trainable_variables
 from baselines.a2c.utils import cat_entropy_softmax
 from baselines.a2c.utils import EpisodeStats
 from baselines.a2c.utils import get_by_index, check_shape, avg_norm, gradient_add, q_explained_variance
@@ -69,7 +70,6 @@ class Model(object):
         D = tf.placeholder(tf.float32, [nbatch]) # dones
         R = tf.placeholder(tf.float32, [nbatch]) # rewards, not returns
         MU = tf.placeholder(tf.float32, [nbatch, nact]) # mu's
-        LR = tf.placeholder(tf.float32, [])
         eps = 1e-6
 
         step_model = policy(sess, ob_space, ac_space, nenvs, 1, nstack, reuse=False)  # type: models.Model
@@ -169,14 +169,15 @@ class Model(object):
         if max_grad_norm is not None:
             grads, norm_grads = tf.clip_by_global_norm(grads, max_grad_norm)
         grads = list(zip(grads, params))
+
+        self.GS = GS = tf.train.get_global_step() or tf.train.create_global_step()
+        LR = tf_decay.schedule(decay=lrschedule, init_lr=lr, global_step=GS, decay_steps=total_timesteps)
         trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=rprop_alpha, epsilon=rprop_epsilon)
         _opt_op = trainer.apply_gradients(grads)
 
         # so when you call _train, you first do the gradient step, then you apply ema
         with tf.control_dependencies([_opt_op]):
             _train = tf.group(ema_apply_op)
-
-        lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
 
         # Ops/Summaries to run, and their names for logging
         run_ops = [_train, loss, loss_q, entropy, loss_policy, loss_f, loss_bc, ev, norm_grads]
@@ -189,8 +190,7 @@ class Model(object):
                                      'avg_norm_k_dot_g', 'avg_norm_adj']
 
         def train(obs, actions, rewards, dones, mus, states, masks, steps):
-            cur_lr = lr.value_steps(steps)
-            td_map = {train_model.X: obs, polyak_model.X: obs, A: actions, R: rewards, D: dones, MU: mus, LR: cur_lr}
+            td_map = {train_model.X: obs, polyak_model.X: obs, A: actions, R: rewards, D: dones, MU: mus, GS: steps}
             if states != []:
                 td_map[train_model.S] = states
                 td_map[train_model.M] = masks

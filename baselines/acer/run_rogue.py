@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import gym
-import os
 from baselines import logger
 from baselines.acer.acer_simple import learn
 from baselines.acer import models
-from baselines.common import set_global_seeds
+from baselines.common import set_global_seeds, tf_decay
 from baselines.common.cmd_util import arg_parser
 
 from envs import RogueEnv, RogueThreadedVecEnv
@@ -16,7 +15,7 @@ def main():
     parser.add_argument('--policy', help='Policy architecture',
                         choices=models.registered_list(), default='CNN_LSTM')
     parser.add_argument('--lrschedule', help='Learning rate schedule',
-                        choices=['constant', 'linear'], default='constant')
+                        choices=tf_decay.types(), default='constant')
     parser.add_argument('--logdir', help ='Directory for logging')
     args = parser.parse_args()
     flags = type('', (), {'max_episode_len': 500})()
