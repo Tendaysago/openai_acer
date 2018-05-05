@@ -21,15 +21,14 @@ def main():
     flags = type('', (), {'max_episode_len': 500})()
     RogueEnv.register(flags)
     logger.configure(args.logdir)
-    train(num_timesteps=args.num_timesteps, seed=0,
-          policy=args.policy, lrschedule=args.lrschedule, num_cpu=16)
 
+    env = make_rogue_env(num_env=16)
 
-def train(num_timesteps, seed, policy, lrschedule, num_cpu):
-    env = make_rogue_env(num_cpu)
-    set_global_seeds(seed)
-    policy_fn = models.get(policy)
-    learn(policy_fn, env, seed=0, nsteps=60, nstack=1, total_timesteps=int(num_timesteps * 1.1), lrschedule=lrschedule)
+    set_global_seeds(0)
+    policy_fn = models.get(args.policy)
+    learn(policy_fn, env, seed=0, nsteps=60, nstack=1, total_timesteps=int(args.num_timesteps * 1.1),
+          lrschedule=args.lrschedule, save_dir='save', save_interval=100)
+
     env.close()
 
 

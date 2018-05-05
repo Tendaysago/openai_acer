@@ -1,15 +1,14 @@
 import time
-import joblib
 import logging
-import os.path as osp
+import os
 import numpy as np
 import tensorflow as tf
 
 from baselines import logger
 from baselines.common import set_global_seeds
-from baselines.common import tf_decay
+from baselines.common import tf_decay, tf_util
 from baselines.a2c.utils import batch_to_seq, seq_to_batch
-from baselines.a2c.utils import make_path, find_trainable_variables
+from baselines.a2c.utils import find_trainable_variables
 from baselines.a2c.utils import cat_entropy_softmax
 from baselines.a2c.utils import EpisodeStats
 from baselines.a2c.utils import get_by_index, check_shape, avg_norm, gradient_add, q_explained_variance
@@ -62,7 +61,7 @@ class Model(object):
         config = tf.ConfigProto(allow_soft_placement=True,
                                 intra_op_parallelism_threads=num_procs,
                                 inter_op_parallelism_threads=num_procs)
-        sess = tf.Session(config=config)
+        self.sess = sess = tf.Session(config=config)
         nact = ac_space.n
         nbatch = nenvs * nsteps
 
@@ -171,6 +170,7 @@ class Model(object):
         grads = list(zip(grads, params))
 
         self.GS = GS = tf.train.get_global_step() or tf.train.create_global_step()
+        self.GSwrapper = tf_util.VariableWrapper(GS)
         LR = tf_decay.schedule(decay=lrschedule, init_lr=lr, global_step=GS, decay_steps=total_timesteps)
         trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=rprop_alpha, epsilon=rprop_epsilon)
         _opt_op = trainer.apply_gradients(grads)
@@ -198,13 +198,7 @@ class Model(object):
                 td_map[polyak_model.M] = masks
             return names_ops, sess.run(run_ops, td_map)[1:]  # strip off _train
 
-        def save(save_path):
-            ps = sess.run(params)
-            make_path(osp.dirname(save_path))
-            joblib.dump(ps, save_path)
-
         self.train = train
-        self.save = save
         self.train_model = train_model
         self.step_model = step_model
         self.step = step_model.step
@@ -299,7 +293,7 @@ class Acer():
         stats_logger = logging.getLogger('stats_logger')
         stats_logger.setLevel(logging.INFO)
         # logger handlers
-        stats_fh = logging.FileHandler(osp.join(logger.get_dir(), 'results.log'))
+        stats_fh = logging.FileHandler(os.path.join(logger.get_dir(), 'results.log'))
         stats_fh.setFormatter(file_formatter)
         stats_logger.addHandler(stats_fh)
 
@@ -359,7 +353,7 @@ class Acer():
 def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_coef=0.5, ent_coef=0.01,
           max_grad_norm=10, lr=7e-4, lrschedule='linear', rprop_epsilon=1e-5, rprop_alpha=0.99, gamma=0.99,
           log_interval=100, stats_interval=1, buffer_size=50000, replay_ratio=4, replay_start=10000, c=10.0,
-          trust_region=True, alpha=0.99, delta=1):
+          trust_region=True, alpha=0.99, delta=1, save_dir='save', save_interval=100):
     print("Running Acer Simple")
     print(locals())
     tf.reset_default_graph()
@@ -381,12 +375,47 @@ def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_c
         buffer = None
     nbatch = nenvs*nsteps
     acer = Acer(runner, model, buffer, log_interval, stats_interval)
+
+    saver = tf.train.Saver(max_to_keep=3, keep_checkpoint_every_n_hours=24)
+    checkpoint_dir = os.path.join(save_dir, 'checkpoints')
+    checkpoint_path = os.path.join(checkpoint_dir, 'model')
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    # load checkpoint
+    latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
+    if latest_checkpoint:
+        print("Loading model checkpoint: {}".format(latest_checkpoint))
+        saver.restore(model.sess, latest_checkpoint)
+        start_steps = model.GSwrapper.get(model.sess)
+
+        if hasattr(env, 'restore_state'):
+            env.restore_state(checkpoint_dir, start_steps)
+    else:
+        start_steps = 0
+
     acer.tstart = time.time()
-    for acer.steps in range(0, total_timesteps, nbatch): #nbatch samples, 1 on_policy call and multiple off-policy calls
+    for acer.steps in range(start_steps, total_timesteps, nbatch):
+
+        # on policy training
         acer.call(on_policy=True)
+
+        # off policy training
         if replay_ratio > 0 and buffer.has_atleast(replay_start):
             n = np.random.poisson(replay_ratio)
             for _ in range(n):
                 acer.call(on_policy=False)  # no simulation steps in this
+
+        # saving
+        do_save = (((acer.steps//nbatch) + 1) % save_interval == 0)
+        if do_save:
+            save_steps = acer.steps+nbatch
+
+            print("Saving at t=%s" % save_steps)
+
+            model.GSwrapper.set(model.sess, save_steps)
+            saver.save(model.sess, save_path=checkpoint_path, global_step=save_steps)
+
+            if hasattr(env, 'save_state'):
+                env.save_state(checkpoint_dir, save_steps)
 
     env.close()

@@ -32,6 +32,59 @@ def lrelu(x, leak=0.2):
     f2 = 0.5 * (1 - leak)
     return f1 * x + f2 * abs(x)
 
+
+class VariableWrapper:
+    """
+    Implements get, set and add operations on the wrapped tensor variable
+    """
+
+    def __init__(self, tensor):
+        """
+        :param tf.Variable tensor:
+            tensor to wrap
+        """
+        self.tensor = tensor
+        self.val_tensor = tf.placeholder(dtype=tensor.dtype, shape=tensor.shape)
+        self.assign_op = tf.assign(tensor, self.val_tensor)
+        self.add_op = tf.assign_add(tensor, self.val_tensor)
+
+    def get(self, sess):
+        """
+        Returns the value of the wrapped tensor
+
+        :param tf.Session sess:
+            session to use
+
+        :return:
+            tensor value
+        """
+        return sess.run(self.tensor)
+
+    def set(self, sess, val):
+        """
+        Sets the wrapped tensor to the given value
+
+        :param tf.Session sess:
+            session to use
+        :param val:
+            value to assign
+        """
+        sess.run(self.assign_op, {self.val_tensor: val})
+
+    def add(self, sess, val):
+        """
+        Sets the wrapped tensor to the sum of its value and the given one
+
+        :param tf.Session sess:
+            session to use
+        :param val:
+            value to assign
+
+        :return:
+            new tensor value
+        """
+        return sess.run(self.add_op, {self.val_tensor: val})
+
 # ================================================================
 # Mathematical utils
 # ================================================================
