@@ -43,19 +43,20 @@ class WorkerProcess(Process):
     def __init__(self, remote, parent_remote, env_fn_wrapper, group=None, name=None):
         """
 
-        :param Pipe work_remote:
         :param Pipe remote:
+        :param Pipe parent_remote:
         :param env_fn_wrapper:
         :param group:
         :param name:
         """
         super().__init__(group=group, name=name)
-        parent_remote.close()
         self.env = env_fn_wrapper.x()
         self.remote = remote
+        self.parent_remote = parent_remote
         self.cmd_handler = self.CmdHandlerClass(self.env)
 
     def run(self):
+        self.parent_remote.close()
         while True:
             cmd, data = self.remote.recv()
             try:

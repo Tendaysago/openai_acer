@@ -6,7 +6,7 @@ from baselines.acer import models
 from baselines.common import set_global_seeds, tf_decay
 from baselines.common.cmd_util import arg_parser
 
-from envs import RogueEnv, RogueThreadedVecEnv
+from envs import RogueEnv, RogueSubprocVecEnv
 
 
 def main():
@@ -38,7 +38,7 @@ def make_rogue_env(num_env, start_index=0):
             env = gym.make('Rogue-v1')
             return env
         return _thunk
-    return RogueThreadedVecEnv([make_env(i + start_index) for i in range(num_env)])
+    return RogueSubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
 
 
 if __name__ == '__main__':
