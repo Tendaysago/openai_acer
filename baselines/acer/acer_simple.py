@@ -1,6 +1,7 @@
 import time
 import logging
 import os
+import signal
 import numpy as np
 import tensorflow as tf
 
@@ -393,6 +394,18 @@ def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_c
     else:
         start_steps = 0
 
+    coordinator = tf.train.Coordinator()
+
+    def signal_handler(signal, frame):
+        if not coordinator.should_stop():
+            coordinator.request_stop()
+            print("Stopping training...")
+        else:
+            print("Stop already requested, please wait...")
+
+    signal.signal(signal.SIGINT, signal_handler)
+    print("Press CTRL+C to stop")
+
     acer.tstart = time.time()
     for acer.steps in range(start_steps, total_timesteps, nbatch):
 
@@ -406,7 +419,7 @@ def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_c
                 acer.call(on_policy=False)  # no simulation steps in this
 
         # saving
-        do_save = (((acer.steps//nbatch) + 1) % save_interval == 0)
+        do_save = (((acer.steps//nbatch) + 1) % save_interval == 0) or coordinator.should_stop()
         if do_save:
             save_steps = acer.steps+nbatch
 
@@ -417,5 +430,8 @@ def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_c
 
             if hasattr(env, 'save_state'):
                 env.save_state(checkpoint_dir, save_steps)
+
+        if coordinator.should_stop():
+            break
 
     env.close()
