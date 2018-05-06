@@ -6,6 +6,7 @@ import warnings
 import numpy as np
 import gym.spaces
 
+from .flags import RogueFlags
 from roguelib_module.rogueinabox import RogueBox
 from roguelib_module.states import CroppedView_SingleLayer_17x17_StateGenerator
 from roguelib_module.rewards import RewardGenerator
@@ -24,21 +25,27 @@ class RogueEnv(gym.Env):
     observation_space = gym.spaces.Box(low=0, high=32, shape=(17, 17, 2), dtype=np.float)
 
     @classmethod
-    def register(cls, FLAGS):
+    def register(cls, flags):
+        """
+        Registers Rogue as a gym environment
+
+        :param RogueFlags flags:
+            registration flags
+        """
         gym.envs.register('Rogue-v1',
-                          entry_point=RogueEnv, trials=200,
+                          entry_point='envs.rogue:RogueEnv', trials=flags.episodes_for_evaluation,
                           reward_threshold=None, local_only=True,
-                          kwargs=None, nondeterministic=True,
-                          tags=None, max_episode_steps=FLAGS.max_episode_len,
+                          kwargs=dict(flags=flags), nondeterministic=True,
+                          tags=None, max_episode_steps=flags.max_episode_len,
                           max_episode_seconds=None, timestep_limit=None)
 
-    def __init__(self):
-        self.rb = RogueBox(use_monsters=False,
-                           max_step_count=500,
-                           episodes_for_evaluation=200,
+    def __init__(self, flags=RogueFlags()):
+        self.rb = RogueBox(use_monsters=flags.use_monsters,
+                           max_step_count=flags.max_episode_len,
+                           episodes_for_evaluation=flags.episodes_for_evaluation,
                            state_generator=CroppedView_2L_17x17_StateGenerator(),
                            reward_generator=StairsOnly_RewardGenerator(),
-                           refresh_after_commands=False)
+                           refresh_after_commands=flags.refresh_after_commands)
         self._saved_episodes = collections.deque()
 
     def render(self, mode='ansi'):

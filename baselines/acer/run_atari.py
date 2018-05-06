@@ -2,22 +2,22 @@
 from baselines import logger
 from baselines.acer.acer_simple import learn
 from baselines.acer import models
-from baselines.common import tf_decay
 from baselines.common.cmd_util import make_atari_env, atari_arg_parser
+from baselines.acer.flags import AcerFlags
 
 
 def main():
     parser = atari_arg_parser()
-    parser.add_argument('--policy', help='Policy architecture', choices=models.registered_list(), default='CNN')
-    parser.add_argument('--lrschedule', help='Learning rate schedule', choices=tf_decay.types(), default='constant')
-    parser.add_argument('--logdir', help ='Directory for logging')
+    parser.add_argument('--flags', '-f', help="flags cfg file", default=None)
     args = parser.parse_args()
-    logger.configure(args.logdir)
 
-    env = make_atari_env(args.env, num_env=16, seed=args.seed)
+    flags = AcerFlags.from_cfg(args.flags) if args.flags else AcerFlags()
+    logger.configure(flags.log_dir)
+
+    env = make_atari_env(args.env, num_env=flags.num_env, seed=flags.seed)
 
     policy_fn = models.get(args.policy)
-    learn(policy_fn, env, args.seed, total_timesteps=int(args.num_timesteps * 1.1), lrschedule=args.lrschedule)
+    learn(policy_fn, env, flags)
 
     env.close()
 

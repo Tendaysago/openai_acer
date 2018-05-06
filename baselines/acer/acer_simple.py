@@ -55,16 +55,22 @@ def q_retrace(R, D, q_i, v, rho_i, nenvs, nsteps, gamma):
 #     return tf.minimum(1 + eps_clip, tf.maximum(1 - eps_clip, ratio))
 
 class Model(object):
-    def __init__(self, policy, ob_space, ac_space, nenvs, nsteps, nstack, num_procs,
-                 ent_coef, q_coef, gamma, max_grad_norm, lr,
-                 rprop_alpha, rprop_epsilon, total_timesteps, lrschedule,
-                 c, trust_region, alpha, delta):
+    def __init__(self, policy, ob_space, ac_space, nenvs, num_procs, flags):
+        """
+
+        :param policy:
+        :param gym.Space ob_space:
+        :param gym.Space ac_space:
+        :param int nenvs:
+        :param int num_procs:
+        :param baselines.acer.flags.AcerFlags flags:
+        """
         config = tf.ConfigProto(allow_soft_placement=True,
                                 intra_op_parallelism_threads=num_procs,
                                 inter_op_parallelism_threads=num_procs)
         self.sess = sess = tf.Session(config=config)
         nact = ac_space.n
-        nbatch = nenvs * nsteps
+        nbatch = nenvs * flags.nsteps
 
         A = tf.placeholder(tf.int32, [nbatch]) # actions
         D = tf.placeholder(tf.float32, [nbatch]) # dones
@@ -72,8 +78,8 @@ class Model(object):
         MU = tf.placeholder(tf.float32, [nbatch, nact]) # mu's
         eps = 1e-6
 
-        step_model = policy(sess, ob_space, ac_space, nenvs, 1, nstack, reuse=False)  # type: models.Model
-        train_model = policy(sess, ob_space, ac_space, nenvs, nsteps + 1, nstack, reuse=True)  # type: models.Model
+        step_model = policy(sess, ob_space, ac_space, nenvs, 1, flags.nstack, reuse=False)
+        train_model = policy(sess, ob_space, ac_space, nenvs, flags.nsteps + 1, flags.nstack, reuse=True)
 
         params = find_trainable_variables("model")
         print("Params {}".format(len(params)))
@@ -81,7 +87,7 @@ class Model(object):
             print(var)
 
         # create polyak averaged model
-        ema = tf.train.ExponentialMovingAverage(alpha)
+        ema = tf.train.ExponentialMovingAverage(flags.alpha)
         ema_apply_op = ema.apply(params)
 
         def custom_getter(getter, *args, **kwargs):
@@ -90,13 +96,13 @@ class Model(object):
             return v
 
         with tf.variable_scope("", custom_getter=custom_getter, reuse=True):
-            polyak_model = policy(sess, ob_space, ac_space, nenvs, nsteps + 1, nstack, reuse=True)  # type: models.Model
+            polyak_model = policy(sess, ob_space, ac_space, nenvs, flags.nsteps + 1, flags.nstack, reuse=True)
 
         # Notation: (var) = batch variable, (var)s = seqeuence variable, (var)_i = variable index by action at step i
         v = tf.reduce_sum(train_model.pi * train_model.q, axis = -1) # shape is [nenvs * (nsteps + 1)]
 
         # strip off last step
-        f, f_pol, q = map(lambda var: strip(var, nenvs, nsteps), [train_model.pi, polyak_model.pi, train_model.q])
+        f, f_pol, q = map(lambda var: strip(var, nenvs, flags.nsteps), [train_model.pi, polyak_model.pi, train_model.q])
         # Get pi and q values for actions taken
         f_i = get_by_index(f, A)
         q_i = get_by_index(q, A)
@@ -106,47 +112,49 @@ class Model(object):
         rho_i = get_by_index(rho, A)
 
         # Calculate Q_retrace targets
-        qret = q_retrace(R, D, q_i, v, rho_i, nenvs, nsteps, gamma)
+        qret = q_retrace(R, D, q_i, v, rho_i, nenvs, flags.nsteps, flags.gamma)
 
         # Calculate losses
         # Entropy
         entropy = tf.reduce_mean(cat_entropy_softmax(f))
 
         # Policy Graident loss, with truncated importance sampling & bias correction
-        v = strip(v, nenvs, nsteps, True)
-        check_shape([qret, v, rho_i, f_i], [[nenvs * nsteps]] * 4)
-        check_shape([rho, f, q], [[nenvs * nsteps, nact]] * 2)
+        v = strip(v, nenvs, flags.nsteps, True)
+        check_shape([qret, v, rho_i, f_i], [[nenvs * flags.nsteps]] * 4)
+        check_shape([rho, f, q], [[nenvs * flags.nsteps, nact]] * 2)
 
         # Truncated importance sampling
         adv = qret - v
         logf = tf.log(f_i + eps)
-        gain_f = logf * tf.stop_gradient(adv * tf.minimum(c, rho_i))  # [nenvs * nsteps]
+        gain_f = logf * tf.stop_gradient(adv * tf.minimum(flags.c, rho_i))  # [nenvs * nsteps]
         loss_f = -tf.reduce_mean(gain_f)
 
         # Bias correction for the truncation
-        adv_bc = (q - tf.reshape(v, [nenvs * nsteps, 1]))  # [nenvs * nsteps, nact]
+        adv_bc = (q - tf.reshape(v, [nenvs * flags.nsteps, 1]))  # [nenvs * nsteps, nact]
         logf_bc = tf.log(f + eps) # / (f_old + eps)
-        check_shape([adv_bc, logf_bc], [[nenvs * nsteps, nact]]*2)
-        gain_bc = tf.reduce_sum(logf_bc * tf.stop_gradient(adv_bc * tf.nn.relu(1.0 - (c / (rho + eps))) * f), axis = 1) #IMP: This is sum, as expectation wrt f
+        check_shape([adv_bc, logf_bc], [[nenvs * flags.nsteps, nact]]*2)
+        gain_bc = tf.reduce_sum(
+            logf_bc * tf.stop_gradient(adv_bc * tf.nn.relu(1.0 - (flags.c / (rho + eps))) * f),
+            axis = 1) #IMP: This is sum, as expectation wrt f
         loss_bc= -tf.reduce_mean(gain_bc)
 
         loss_policy = loss_f + loss_bc
 
         # Value/Q function loss, and explained variance
-        check_shape([qret, q_i], [[nenvs * nsteps]]*2)
-        ev = q_explained_variance(tf.reshape(q_i, [nenvs, nsteps]), tf.reshape(qret, [nenvs, nsteps]))
+        check_shape([qret, q_i], [[nenvs * flags.nsteps]]*2)
+        ev = q_explained_variance(tf.reshape(q_i, [nenvs, flags.nsteps]), tf.reshape(qret, [nenvs, flags.nsteps]))
         loss_q = tf.reduce_mean(tf.square(tf.stop_gradient(qret) - q_i)*0.5)
 
         # Net loss
         check_shape([loss_policy, loss_q, entropy], [[]] * 3)
-        loss = loss_policy + q_coef * loss_q - ent_coef * entropy
+        loss = loss_policy + flags.q_coef * loss_q - flags.ent_coef * entropy
 
-        if trust_region:
-            g = tf.gradients(- (loss_policy - ent_coef * entropy) * nsteps * nenvs, f) #[nenvs * nsteps, nact]
+        if flags.trust_region:
+            g = tf.gradients(- (loss_policy - flags.ent_coef * entropy) * flags.nsteps * nenvs, f) #[nenvs * nsteps, nact]
             # k = tf.gradients(KL(f_pol || f), f)
             k = - f_pol / (f + eps) #[nenvs * nsteps, nact] # Directly computed gradient of KL divergence wrt f
             k_dot_g = tf.reduce_sum(k * g, axis=-1)
-            adj = tf.maximum(0.0, (tf.reduce_sum(k * g, axis=-1) - delta) / (tf.reduce_sum(tf.square(k), axis=-1) + eps)) #[nenvs * nsteps]
+            adj = tf.maximum(0.0, (tf.reduce_sum(k * g, axis=-1) - flags.delta) / (tf.reduce_sum(tf.square(k), axis=-1) + eps)) #[nenvs * nsteps]
 
             # Calculate stats (before doing adjustment) for logging.
             avg_norm_k = avg_norm(k)
@@ -154,26 +162,27 @@ class Model(object):
             avg_norm_k_dot_g = tf.reduce_mean(tf.abs(k_dot_g))
             avg_norm_adj = tf.reduce_mean(tf.abs(adj))
 
-            g = g - tf.reshape(adj, [nenvs * nsteps, 1]) * k
-            grads_f = -g/(nenvs*nsteps) # These are turst region adjusted gradients wrt f ie statistics of policy pi
+            g = g - tf.reshape(adj, [nenvs * flags.nsteps, 1]) * k
+            grads_f = -g/(nenvs*flags.nsteps) # These are turst region adjusted gradients wrt f ie statistics of policy pi
             grads_policy = tf.gradients(f, params, grads_f)
-            grads_q = tf.gradients(loss_q * q_coef, params)
+            grads_q = tf.gradients(loss_q * flags.q_coef, params)
             grads = [gradient_add(g1, g2, param) for (g1, g2, param) in zip(grads_policy, grads_q, params)]
 
-            avg_norm_grads_f = avg_norm(grads_f) * (nsteps * nenvs)
+            avg_norm_grads_f = avg_norm(grads_f) * (flags.nsteps * nenvs)
             norm_grads_q = tf.global_norm(grads_q)
             norm_grads_policy = tf.global_norm(grads_policy)
         else:
             grads = tf.gradients(loss, params)
 
-        if max_grad_norm is not None:
-            grads, norm_grads = tf.clip_by_global_norm(grads, max_grad_norm)
+        if flags.max_grad_norm is not None:
+            grads, norm_grads = tf.clip_by_global_norm(grads, flags.max_grad_norm)
         grads = list(zip(grads, params))
 
         self.GS = GS = tf.train.get_global_step() or tf.train.create_global_step()
         self.GSwrapper = tf_util.VariableWrapper(GS)
-        LR = tf_decay.schedule(decay=lrschedule, init_lr=lr, global_step=GS, decay_steps=total_timesteps)
-        trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=rprop_alpha, epsilon=rprop_epsilon)
+        LR = tf_decay.schedule(decay=flags.lrschedule, init_lr=flags.lr,
+                               global_step=GS, decay_steps=flags.total_timesteps)
+        trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=flags.rprop_alpha, epsilon=flags.rprop_epsilon)
         _opt_op = trainer.apply_gradients(grads)
 
         # so when you call _train, you first do the gradient step, then you apply ema
@@ -184,7 +193,7 @@ class Model(object):
         run_ops = [_train, loss, loss_q, entropy, loss_policy, loss_f, loss_bc, ev, norm_grads]
         names_ops = ['loss', 'loss_q', 'entropy', 'loss_policy', 'loss_f', 'loss_bc', 'explained_variance',
                      'norm_grads']
-        if trust_region:
+        if flags.trust_region:
             run_ops = run_ops + [norm_grads_q, norm_grads_policy, avg_norm_grads_f, avg_norm_k, avg_norm_g, avg_norm_k_dot_g,
                                  avg_norm_adj]
             names_ops = names_ops + ['norm_grads_q', 'norm_grads_policy', 'avg_norm_grads_f', 'avg_norm_k', 'avg_norm_g',
@@ -351,34 +360,40 @@ class Acer():
                 self.stats_logger.info(' '.join('%s=%s' % (key, val) for key, val in avg_stats.items()))
 
 
-def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_coef=0.5, ent_coef=0.01,
-          max_grad_norm=10, lr=7e-4, lrschedule='linear', rprop_epsilon=1e-5, rprop_alpha=0.99, gamma=0.99,
-          log_interval=100, stats_interval=1, buffer_size=50000, replay_ratio=4, replay_start=10000, c=10.0,
-          trust_region=True, alpha=0.99, delta=1, save_dir='save', save_interval=100):
+def learn(policy, env, flags):
+    """
+
+    :param policy:
+    :param baselines.common.vec_env.VecEnv env:
+    :param baselines.acer.flags.AcerFlags flags:
+    """
     print("Running Acer Simple")
-    print(locals())
+    print(flags)
+
+    flags.total_timesteps = int(flags.total_timesteps)
+
+    # disable gpu before creating any tensor
+    if not flags.use_gpu:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
     tf.reset_default_graph()
-    set_global_seeds(seed)
+    set_global_seeds(flags.seed)
 
     nenvs = env.num_envs
     ob_space = env.observation_space
     ac_space = env.action_space
-    model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, nstack=nstack,
-                  num_procs=nenvs, ent_coef=ent_coef, q_coef=q_coef, gamma=gamma,
-                  max_grad_norm=max_grad_norm, lr=lr, rprop_alpha=rprop_alpha, rprop_epsilon=rprop_epsilon,
-                  total_timesteps=total_timesteps, lrschedule=lrschedule, c=c,
-                  trust_region=trust_region, alpha=alpha, delta=delta)
+    model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, num_procs=nenvs, flags=flags)
 
-    runner = Runner(env=env, model=model, nsteps=nsteps, nstack=nstack)
-    if replay_ratio > 0:
-        buffer = Buffer(env=env, nsteps=nsteps, nstack=nstack, size=buffer_size)
+    runner = Runner(env=env, model=model, nsteps=flags.nsteps, nstack=flags.nstack)
+    if flags.replay_ratio > 0:
+        buffer = Buffer(env=env, nsteps=flags.nsteps, nstack=flags.nstack, size=flags.buffer_size)
     else:
         buffer = None
-    nbatch = nenvs*nsteps
-    acer = Acer(runner, model, buffer, log_interval, stats_interval)
+    nbatch = nenvs*flags.nsteps
+    acer = Acer(runner, model, buffer, flags.log_interval, flags.stats_interval)
 
     saver = tf.train.Saver(max_to_keep=3, keep_checkpoint_every_n_hours=24)
-    checkpoint_dir = os.path.join(save_dir, 'checkpoints')
+    checkpoint_dir = os.path.join(flags.save_dir, 'checkpoints')
     checkpoint_path = os.path.join(checkpoint_dir, 'model')
     os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -407,19 +422,19 @@ def learn(policy, env, seed, nsteps=20, nstack=4, total_timesteps=int(80e6), q_c
     print("Press CTRL+C to stop")
 
     acer.tstart = time.time()
-    for acer.steps in range(start_steps, total_timesteps, nbatch):
+    for acer.steps in range(start_steps, flags.total_timesteps, nbatch):
 
         # on policy training
         acer.call(on_policy=True)
 
         # off policy training
-        if replay_ratio > 0 and buffer.has_atleast(replay_start):
-            n = np.random.poisson(replay_ratio)
+        if flags.replay_ratio > 0 and buffer.has_atleast(flags.replay_start):
+            n = np.random.poisson(flags.replay_ratio)
             for _ in range(n):
                 acer.call(on_policy=False)  # no simulation steps in this
 
         # saving
-        do_save = (((acer.steps//nbatch) + 1) % save_interval == 0) or coordinator.should_stop()
+        do_save = (((acer.steps//nbatch) + 1) % flags.save_interval == 0) or coordinator.should_stop()
         if do_save:
             save_steps = acer.steps+nbatch
 

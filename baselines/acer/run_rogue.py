@@ -6,28 +6,23 @@ from baselines.acer import models
 from baselines.common import set_global_seeds, tf_decay
 from baselines.common.cmd_util import arg_parser
 
-from envs import RogueEnv, RogueSubprocVecEnv
+from envs import RogueEnv, RogueSubprocVecEnv, RogueFlags
 
 
 def main():
     parser = arg_parser()
-    parser.add_argument('--num-timesteps', '-n', type=int, default=int(1e8))
-    parser.add_argument('--policy', help='Policy architecture',
-                        choices=models.registered_list(), default='CNN_LSTM')
-    parser.add_argument('--lrschedule', help='Learning rate schedule',
-                        choices=tf_decay.types(), default='constant')
-    parser.add_argument('--logdir', help ='Directory for logging')
+    parser.add_argument('--flags', '-f', help="flags cfg file", default=None)
     args = parser.parse_args()
-    flags = type('', (), {'max_episode_len': 500})()
+
+    flags = RogueFlags.from_cfg(args.flags) if args.flags else RogueFlags()
     RogueEnv.register(flags)
-    logger.configure(args.logdir)
+    logger.configure(flags.log_dir)
 
-    env = make_rogue_env(num_env=16)
+    env = make_rogue_env(num_env=flags.num_env)
 
-    set_global_seeds(0)
-    policy_fn = models.get(args.policy)
-    learn(policy_fn, env, seed=0, nsteps=60, nstack=1, total_timesteps=int(args.num_timesteps * 1.1),
-          lrschedule=args.lrschedule, save_dir='save', save_interval=100)
+    set_global_seeds(flags.seed)
+    policy_fn = models.get(flags.policy)
+    learn(policy_fn, env, flags)
 
     env.close()
 
