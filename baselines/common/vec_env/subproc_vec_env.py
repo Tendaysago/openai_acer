@@ -1,4 +1,5 @@
 import numpy as np
+import signal
 from multiprocessing import Process, Pipe
 from baselines.common.vec_env import VecEnv, CloudpickleWrapper
 
@@ -40,7 +41,7 @@ class WorkerProcess(Process):
 
     CmdHandlerClass = CommandHandler
 
-    def __init__(self, remote, parent_remote, env_fn_wrapper, group=None, name=None):
+    def __init__(self, remote, parent_remote, env_fn_wrapper, ignore_sigint=True, group=None, name=None):
         """
 
         :param Pipe remote:
@@ -50,13 +51,21 @@ class WorkerProcess(Process):
         :param name:
         """
         super().__init__(group=group, name=name)
+        self._ignore_sigint_flag = ignore_sigint
         self.env = env_fn_wrapper.x()
         self.remote = remote
         self.parent_remote = parent_remote
         self.cmd_handler = self.CmdHandlerClass(self.env)
 
+    def _ignore_sigint(self):
+        signal.signal(signal.SIGINT, lambda *args, **kwargs: None)
+
     def run(self):
         self.parent_remote.close()
+
+        if self._ignore_sigint_flag:
+            self._ignore_sigint()
+
         while True:
             cmd, data = self.remote.recv()
             try:
