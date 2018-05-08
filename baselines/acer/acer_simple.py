@@ -14,7 +14,6 @@ from baselines.a2c.utils import cat_entropy_softmax
 from baselines.a2c.utils import EpisodeStats
 from baselines.a2c.utils import get_by_index, check_shape, avg_norm, gradient_add, q_explained_variance
 from baselines.acer.buffer import Buffer
-from baselines.acer import models
 
 # remove last step
 def strip(var, nenvs, nsteps, flat = False):

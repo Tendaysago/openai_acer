@@ -6,10 +6,8 @@ import warnings
 import numpy as np
 import gym.spaces
 
-from .flags import RogueFlags
 from roguelib_module.rogueinabox import RogueBox
-from roguelib_module.states import CroppedView_SingleLayer_17x17_StateGenerator
-from roguelib_module.rewards import RewardGenerator
+from .flags import RogueFlags
 
 
 EPISODES_TO_KEEP = 5
@@ -43,8 +41,8 @@ class RogueEnv(gym.Env):
         self.rb = RogueBox(use_monsters=flags.use_monsters,
                            max_step_count=flags.max_episode_len,
                            episodes_for_evaluation=flags.episodes_for_evaluation,
-                           state_generator=CroppedView_2L_17x17_StateGenerator(),
-                           reward_generator=StairsOnly_RewardGenerator(),
+                           state_generator=flags.state_generator,
+                           reward_generator=flags.reward_generator,
                            refresh_after_commands=flags.refresh_after_commands)
         self._saved_episodes = collections.deque()
 
@@ -106,31 +104,3 @@ class RogueEnv(gym.Env):
         except FileNotFoundError:
             if warn:
                 warnings.warn('Episodes file %s not found: stats may be skewed.' % path, RuntimeWarning)
-
-
-class CroppedView_2L_17x17_StateGenerator(CroppedView_SingleLayer_17x17_StateGenerator):
-
-    def _set_shape(self, data_format):
-        self._shape = (2, 17, 17) if data_format == "channels_first" else (17, 17, 2)
-
-    def build_state(self, current_frame, frame_history):
-        state = self.empty_state()
-
-        self.set_channel_relative(self.player_position, state, 1, current_frame.get_list_of_positions_by_tile("%"), 4)  # stairs
-        self.set_channel_relative(self.player_position, state, 0, current_frame.get_list_of_positions_by_tile("|"), 8)  # walls
-        self.set_channel_relative(self.player_position, state, 0, current_frame.get_list_of_positions_by_tile("-"), 8)  # walls
-        self.set_channel_relative(self.player_position, state, 0, current_frame.get_list_of_positions_by_tile("+"), 16)  # doors
-        self.set_channel_relative(self.player_position, state, 0, current_frame.get_list_of_positions_by_tile("#"), 16)  # tunnel
-
-        return state
-
-
-class StairsOnly_RewardGenerator(RewardGenerator):
-
-    def get_value(self, frame_history):
-        old_info = frame_history[-2]
-        new_info = frame_history[-1]
-        if new_info.statusbar["dungeon_level"] > old_info.statusbar["dungeon_level"]:
-            self.goal_achieved = True
-            return 10
-        return 0
