@@ -27,6 +27,14 @@ def switch(condition, then_expression, else_expression):
 # Extras
 # ================================================================
 
+def disable_gpu():
+    """
+    Disables GPU usage.
+    N.B. in order to have any effect, this must be called before creating any tensor.
+    """
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+
 def lrelu(x, leak=0.2):
     f1 = 0.5 * (1 + leak)
     f2 = 0.5 * (1 - leak)

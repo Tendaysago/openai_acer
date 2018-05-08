@@ -373,7 +373,7 @@ def learn(policy, env, flags):
 
     # disable gpu before creating any tensor
     if not flags.use_gpu:
-        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+        tf_util.disable_gpu()
 
     tf.reset_default_graph()
     set_global_seeds(flags.seed)
