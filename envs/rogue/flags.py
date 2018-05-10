@@ -2,12 +2,17 @@
 from baselines.acer.flags import AcerFlags
 
 
-class RogueFlags(AcerFlags):
+class RogueAcerFlags(AcerFlags):
 
     CFG_sections = {'RNG', 'Training', 'Log', 'Rogue'}
 
     def __init__(self):
         super().__init__()
+
+        # It's important that nstack = 1
+        self.nstack = 1
+
+        self.nsteps = 60
 
         # Maximum number of steps in an episode
         self.max_episode_len = 500

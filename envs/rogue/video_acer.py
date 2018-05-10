@@ -7,7 +7,7 @@ from baselines.common.cmd_util import arg_parser
 from baselines.common import tf_util
 from roguelib_module.baseagent import BaseAgent, RecordingWrapper
 
-from envs.rogue import RogueFlags, RogueEnv
+from envs.rogue import RogueAcerFlags, RogueEnv
 
 
 class ACER_Agent(BaseAgent):
@@ -15,11 +15,11 @@ class ACER_Agent(BaseAgent):
     UI ACER agent
     """
 
-    def __init__(self, configs, flags=RogueFlags(), checkpoint_path=''):
+    def __init__(self, configs, flags=RogueAcerFlags(), checkpoint_path=''):
         """
         :param dict configs:
             rogueinabox BaseAgent config options
-        :param RogueFlags flags:
+        :param RogueAcerFlags flags:
             flags to use
         :param str checkpoint_path:
             checkpoint path to be loaded
@@ -61,7 +61,7 @@ class ACER_Agent(BaseAgent):
         return done
 
 
-def video(flags=RogueFlags(), checkpoint_path=None, record_dir=None):
+def video(flags=RogueAcerFlags(), checkpoint_path=None, record_dir=None):
     try:
         RogueEnv.register(flags)
     except gym.error.Error:
@@ -87,6 +87,6 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint_path', '-c', help="checkpoint file to load")
     args = parser.parse_args()
 
-    flags = RogueFlags.from_cfg(args.flags) if args.flags else RogueFlags()
+    flags = RogueAcerFlags.from_cfg(args.flags) if args.flags else RogueAcerFlags()
 
     video(flags=flags, checkpoint_path=args.checkpoint_path, record_dir=args.record_dir)

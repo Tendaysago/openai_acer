@@ -7,7 +7,7 @@ import numpy as np
 import gym.spaces
 
 from roguelib_module.rogueinabox import RogueBox
-from .flags import RogueFlags
+from .flags import RogueAcerFlags
 
 
 EPISODES_TO_KEEP = 5
@@ -27,7 +27,7 @@ class RogueEnv(gym.Env):
         """
         Registers Rogue as a gym environment
 
-        :param RogueFlags flags:
+        :param RogueAcerFlags flags:
             registration flags
         """
         gym.envs.register('Rogue-v1',
@@ -37,7 +37,7 @@ class RogueEnv(gym.Env):
                           tags=None, max_episode_steps=flags.max_episode_len,
                           max_episode_seconds=None, timestep_limit=None)
 
-    def __init__(self, flags=RogueFlags()):
+    def __init__(self, flags=RogueAcerFlags()):
         self.rb = RogueBox(use_monsters=flags.use_monsters,
                            max_step_count=flags.max_episode_len,
                            episodes_for_evaluation=flags.episodes_for_evaluation,

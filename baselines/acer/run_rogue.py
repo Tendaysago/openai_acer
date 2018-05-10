@@ -6,7 +6,7 @@ from baselines.acer import models
 from baselines.common import set_global_seeds, tf_decay
 from baselines.common.cmd_util import arg_parser
 
-from envs import RogueEnv, RogueSubprocVecEnv, RogueFlags
+from envs import RogueEnv, RogueSubprocVecEnv, RogueAcerFlags
 
 
 def main():
@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--flags', '-f', help="flags cfg file", default=None)
     args = parser.parse_args()
 
-    flags = RogueFlags.from_cfg(args.flags) if args.flags else RogueFlags()
+    flags = RogueAcerFlags.from_cfg(args.flags) if args.flags else RogueAcerFlags()
     RogueEnv.register(flags)
     logger.configure(flags.log_dir)
 
