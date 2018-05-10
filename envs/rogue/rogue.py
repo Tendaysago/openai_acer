@@ -20,7 +20,7 @@ class RogueEnv(gym.Env):
     reward_range = (-np.inf, np.inf)
     actions = RogueBox.get_actions()
     action_space = gym.spaces.Discrete(len(actions))
-    observation_space = gym.spaces.Box(low=0, high=32, shape=(17, 17, 2), dtype=np.float)
+    observation_space = None  # only an instance has a value because it depends on the state generator
 
     @classmethod
     def register(cls, flags):
@@ -44,6 +44,10 @@ class RogueEnv(gym.Env):
                            state_generator=flags.state_generator,
                            reward_generator=flags.reward_generator,
                            refresh_after_commands=flags.refresh_after_commands)
+
+        state_shape = self.rb.state_generator.get_shape()
+        self.observation_space = gym.spaces.Box(low=0, high=32, shape=state_shape, dtype=np.float)
+
         self._saved_episodes = collections.deque()
 
     def render(self, mode='ansi'):
