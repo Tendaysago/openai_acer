@@ -68,6 +68,8 @@ class AcerFlags:
         self.save_dir = 'save'
         # Saving interval in number of batches
         self.save_interval = 100
+        # Permanently keep a checkpoint every n hours
+        self.permanent_save_hours = 12
 
     def __str__(self):
         avoid_attr = {'from_cfg', 'CFG_sections'}

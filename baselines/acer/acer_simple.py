@@ -391,7 +391,7 @@ def learn(policy, env, flags):
     nbatch = nenvs*flags.nsteps
     acer = Acer(runner, model, buffer, flags.log_interval, flags.stats_interval)
 
-    saver = tf.train.Saver(max_to_keep=3, keep_checkpoint_every_n_hours=24)
+    saver = tf.train.Saver(max_to_keep=3, keep_checkpoint_every_n_hours=flags.permanent_save_hours)
     checkpoint_dir = os.path.join(flags.save_dir, 'checkpoints')
     checkpoint_path = os.path.join(checkpoint_dir, 'model')
     os.makedirs(checkpoint_dir, exist_ok=True)
