@@ -349,13 +349,44 @@ class Acer():
             if hasattr(self.runner.env, 'stats'):
                 envs_stats = self.runner.env.stats()
                 avg_stats = {}
-                for key in envs_stats[0].keys():
-                    avg_stats[key] = 0
+
+                # keys_of_lists: for each key related to a list has a list in which the i-th element counts the number
+                # of envs that has an i-th element in the list related to that key
+                keys_of_lists = {}  # type: dict[str, list[int]]
+
+                # init average stats
+                for key, val in envs_stats[0].items():
+                    if isinstance(val, list):
+                        avg_stats[key] = []
+                        keys_of_lists[key] = []
+                    else:
+                        avg_stats[key] = 0
+
+                # collect stats for each environment
                 for stats in envs_stats:
                     for key, val in stats.items():
-                        avg_stats[key] += val
+                        if isinstance(val, list):
+                            avg_list = avg_stats[key]
+                            counts = keys_of_lists[key]
+                            len_diff = len(val) - len(counts)
+                            if len_diff > 0:
+                                counts.extend([0]*len_diff)
+                                avg_list.extend([0]*len_diff)
+                            for i, v in enumerate(val):
+                                counts[i] += 1
+                                avg_list[i] += v
+                        else:
+                            avg_stats[key] += val
+
+                # average stats across envs
                 for key, val in avg_stats.items():
-                    avg_stats[key] = val / len(envs_stats)
+                    if isinstance(val, list):
+                        counts = keys_of_lists[key]
+                        for i, v in enumerate(val):
+                            val[i] = v / counts[i]
+                    else:
+                        avg_stats[key] = val / len(envs_stats)
+
                 avg_stats['global_t'] = steps
                 self.stats_logger.info(' '.join('%s=%s' % (key, val) for key, val in avg_stats.items()))
 

@@ -7,6 +7,7 @@ import numpy as np
 import gym.spaces
 
 from roguelib_module.rogueinabox import RogueBox
+from roguelib_module.evaluator import LevelsRogueEvaluator
 from .flags import RogueAcerFlags
 
 
@@ -18,9 +19,11 @@ class RogueEnv(gym.Env):
     metadata = {'render.modes': ['ansi']}
 
     reward_range = (-np.inf, np.inf)
-    actions = RogueBox.get_actions()
-    action_space = gym.spaces.Discrete(len(actions))
-    observation_space = None  # only an instance has a value because it depends on the state generator
+
+    # only an instance has a value for the following attributes because they depend on flags
+    actions = None
+    action_space = None
+    observation_space = None
 
     @classmethod
     def register(cls, flags):
@@ -38,13 +41,17 @@ class RogueEnv(gym.Env):
                           max_episode_seconds=None, timestep_limit=None)
 
     def __init__(self, flags=RogueAcerFlags()):
+        evaluator = LevelsRogueEvaluator(max_step_count=flags.max_episode_len,
+                                         episodes_for_evaluation=flags.episodes_for_evaluation)
+
         self.rb = RogueBox(use_monsters=flags.use_monsters,
-                           max_step_count=flags.max_episode_len,
-                           episodes_for_evaluation=flags.episodes_for_evaluation,
+                           evaluator=evaluator,
                            state_generator=flags.state_generator,
                            reward_generator=flags.reward_generator,
                            refresh_after_commands=flags.refresh_after_commands)
 
+        self.actions = flags.actions
+        self.action_space = gym.spaces.Discrete(len(self.actions))
         state_shape = self.rb.state_generator.get_shape()
         self.observation_space = gym.spaces.Box(low=0, high=32, shape=state_shape, dtype=np.float)
 
@@ -64,13 +71,17 @@ class RogueEnv(gym.Env):
 
     def step(self, action):
         """
-        :param np.ndarray action:
+        :param int action:
             action to perform, represented as an integer in [0, len(actions)[
 
         :return:
             next_state, reward, done, info
         """
-        command = self.actions[action]
+        try:
+            command = self.actions[action]
+        except IndexError:
+            raise IndexError('Invalid rogue action index: %s. Action list has size: %s.'
+                             % (action, len(self.actions)))
         reward, new_state, won, lost = self.rb.send_command(command)
         return new_state, reward, won or lost, self.rb.get_last_frame()
 

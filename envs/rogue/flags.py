@@ -25,6 +25,8 @@ class RogueAcerFlags(AcerFlags):
         self.state_generator = "FullMap_5L_StateGenerator"
         # Reward generator name
         self.reward_generator = "StairsOnly_RewardGenerator"
+        # Actions available
+        self.actions = 'hjkl>'
 
         # Wheter to enable monsters
         self.use_monsters = False
