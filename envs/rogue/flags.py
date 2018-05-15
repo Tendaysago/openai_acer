@@ -9,6 +9,8 @@ class RogueAcerFlags(AcerFlags):
     def __init__(self):
         super().__init__()
 
+        self.policy = "Towers_LSTM"
+
         # It's important that nstack = 1
         self.nstack = 1
 
@@ -20,7 +22,7 @@ class RogueAcerFlags(AcerFlags):
         self.episodes_for_evaluation = 200
 
         # State generator name
-        self.state_generator = "CroppedView_2L_17x17_StateGenerator"
+        self.state_generator = "FullMap_5L_StateGenerator"
         # Reward generator name
         self.reward_generator = "StairsOnly_RewardGenerator"
 
