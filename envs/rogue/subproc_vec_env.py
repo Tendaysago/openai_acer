@@ -1,6 +1,6 @@
 
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv, WorkerProcess
-from .threaded_vec_env import RogueCommandHandler
+from .threaded_vec_env import RogueCommandHandler, RogueThreadedVecEnv
 
 
 class RogueWorkerProcess(WorkerProcess):
@@ -15,7 +15,7 @@ class RogueSubprocVecEnv(SubprocVecEnv):
     def stats(self):
         for remote in self.remotes:
             remote.send(('stats', None))
-        return [remote.recv() for remote in self.remotes]
+        return RogueThreadedVecEnv.aggregate_stats([remote.recv() for remote in self.remotes])
 
     def save_state(self, checkpoint_dir, global_t):
         for i, remote in enumerate(self.remotes):

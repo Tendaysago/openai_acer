@@ -26,10 +26,33 @@ class RogueThreadedVecEnv(ThreadedVecEnv):
 
     WorkerClass = RogueWorkerThread
 
+    @staticmethod
+    def aggregate_stats(stats):
+        """
+        Aggregates stats of different envs by padding the 'lvls_avg' list with zeros, such that all envs have the
+        same 'lvls_avg' length
+
+        :param list[dict] stats:
+            stats to aggregate
+
+        :return:
+            aggregated stats
+        """
+        if 'lvls_avg' in stats[0]:
+            max_len = 0
+            for s in stats:
+                max_len = max(max_len, len(s['lvls_avg']))
+            for s in stats:
+                lvls_avg = s['lvls_avg']
+                diff = max_len - len(lvls_avg)
+                if diff > 0:
+                    lvls_avg.extend([0]*diff)
+        return stats
+
     def stats(self):
         for cmd_queue in self.cmd_queues:
             cmd_queue.put(('stats', None))
-        return [res_queue.get() for res_queue in self.res_queues]
+        return self.aggregate_stats([res_queue.get() for res_queue in self.res_queues])
 
     def save_state(self, checkpoint_dir, global_t):
         for i, cmd_queue in enumerate(self.cmd_queues):
