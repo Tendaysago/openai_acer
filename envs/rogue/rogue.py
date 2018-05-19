@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import gym.spaces
 
-from roguelib_module.rogueinabox import RogueBox
+from roguelib_module.rogueinabox import RogueBox, RogueOptions
 from roguelib_module.evaluator import LevelsRogueEvaluator
 from .flags import RogueAcerFlags
 
@@ -44,7 +44,11 @@ class RogueEnv(gym.Env):
         evaluator = LevelsRogueEvaluator(max_step_count=flags.max_episode_len,
                                          episodes_for_evaluation=flags.episodes_for_evaluation)
 
-        self.rb = RogueBox(use_monsters=flags.use_monsters,
+        self.rb = RogueBox(rogue_options=RogueOptions(use_monsters=flags.use_monsters,
+                                                      enable_secrets=flags.enable_secrets,
+                                                      amulet_level=flags.amulet_level,
+                                                      hungertime=flags.hungertime,
+                                                      max_traps=flags.max_traps),
                            evaluator=evaluator,
                            state_generator=flags.state_generator,
                            reward_generator=flags.reward_generator,
@@ -56,6 +60,10 @@ class RogueEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=0, high=32, shape=state_shape, dtype=np.float)
 
         self._saved_episodes = collections.deque()
+
+    def seed(self, seed=None):
+        self.rb.rogue_options.set_seed(seed)
+        return [seed]
 
     def render(self, mode='ansi'):
         if mode != 'ansi':

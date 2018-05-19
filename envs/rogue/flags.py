@@ -30,5 +30,13 @@ class RogueAcerFlags(AcerFlags):
 
         # Wheter to enable monsters
         self.use_monsters = False
+        # Whether to enable hidden tiles
+        self.enable_secrets = False
+        # Level where the amulet of Yendor will be
+        self.amulet_level = 26
+        # Number of steps after which the rouge becomes faint
+        self.hungertime = 1300
+        # Maximum number of traps
+        self.max_traps = 0
         # Whether to send the refresh command after each action
         self.refresh_after_commands = False

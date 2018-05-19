@@ -3,7 +3,7 @@ import gym
 from baselines import logger
 from baselines.acer.acer_simple import learn
 from baselines.acer import models
-from baselines.common import set_global_seeds, tf_decay
+from baselines.common import set_global_seeds
 from baselines.common.cmd_util import arg_parser
 
 from envs import RogueEnv, RogueSubprocVecEnv, RogueAcerFlags
@@ -18,7 +18,7 @@ def main():
     RogueEnv.register(flags)
     logger.configure(flags.log_dir)
 
-    env = make_rogue_env(num_env=flags.num_env)
+    env = make_rogue_env(num_env=flags.num_env, seed=flags.seed)
 
     set_global_seeds(flags.seed)
     policy_fn = models.get(flags.policy)
@@ -27,10 +27,11 @@ def main():
     env.close()
 
 
-def make_rogue_env(num_env, start_index=0):
+def make_rogue_env(num_env, seed=None, start_index=0):
     def make_env(rank):
         def _thunk():
             env = gym.make('Rogue-v1')
+            env.seed(seed + rank)
             return env
         return _thunk
     return RogueSubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
