@@ -6,6 +6,7 @@ from baselines.acer import models
 from baselines.common.cmd_util import arg_parser
 from baselines.common import tf_util
 from roguelib_module.baseagent import BaseAgent, RecordingWrapper
+from roguelib_module.options import AgentOptions
 
 from envs.rogue import RogueAcerFlags, RogueEnv
 
@@ -15,10 +16,11 @@ class ACER_Agent(BaseAgent):
     UI ACER agent
     """
 
-    def __init__(self, configs, flags=RogueAcerFlags(), checkpoint_path=''):
+    def __init__(self, options, flags=RogueAcerFlags(), checkpoint_path=''):
         """
-        :param dict configs:
-            rogueinabox BaseAgent config options
+        :param AgentOptions options:
+            rogueinabox AgentOptions
+            N.B. roguebox_options are ignored, use flags
         :param RogueAcerFlags flags:
             flags to use
         :param str checkpoint_path:
@@ -45,7 +47,7 @@ class ACER_Agent(BaseAgent):
         self.policy_state = self.policy.initial_state
         self.rogue_state = None
 
-        super().__init__(configs)
+        super().__init__(options)
 
     def _create_rogue(self, configs):
         self.rogue_state = self.env.reset()
@@ -68,9 +70,9 @@ def video(flags=RogueAcerFlags(), checkpoint_path=None, record_dir=None):
         # an error is raised if Rogue was already registered
         pass
 
-    configs = {'gui': True, 'gui_timer_ms': 50, 'userinterface': 'curses'}
+    options = AgentOptions(gui=True, gui_timer_ms=50, userinterface='curses')
 
-    agent = ACER_Agent(configs, flags=flags, checkpoint_path=checkpoint_path)
+    agent = ACER_Agent(options, flags=flags, checkpoint_path=checkpoint_path)
 
     if record_dir:
         agent = RecordingWrapper(agent, record_dir=record_dir)

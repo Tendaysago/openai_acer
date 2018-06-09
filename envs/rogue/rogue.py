@@ -6,7 +6,8 @@ import warnings
 import numpy as np
 import gym.spaces
 
-from roguelib_module.rogueinabox import RogueBox, RogueOptions
+from roguelib_module.rogueinabox import RogueBox
+from roguelib_module.options import RogueOptions, RogueBoxOptions
 from roguelib_module.evaluator import LevelsRogueEvaluator
 from .flags import RogueAcerFlags
 
@@ -44,15 +45,16 @@ class RogueEnv(gym.Env):
         evaluator = LevelsRogueEvaluator(max_step_count=flags.max_episode_len,
                                          episodes_for_evaluation=flags.episodes_for_evaluation)
 
-        self.rb = RogueBox(rogue_options=RogueOptions(use_monsters=flags.use_monsters,
-                                                      enable_secrets=flags.enable_secrets,
-                                                      amulet_level=flags.amulet_level,
-                                                      hungertime=flags.hungertime,
-                                                      max_traps=flags.max_traps),
-                           evaluator=evaluator,
-                           state_generator=flags.state_generator,
-                           reward_generator=flags.reward_generator,
-                           refresh_after_commands=flags.refresh_after_commands)
+        self.rb = RogueBox(RogueBoxOptions(
+                               rogue_options=RogueOptions(use_monsters=flags.use_monsters,
+                                                          enable_secrets=flags.enable_secrets,
+                                                          amulet_level=flags.amulet_level,
+                                                          hungertime=flags.hungertime,
+                                                          max_traps=flags.max_traps),
+                               evaluator=evaluator,
+                               state_generator=flags.state_generator,
+                               reward_generator=flags.reward_generator,
+                               refresh_after_commands=flags.refresh_after_commands))
 
         self.actions = flags.actions
         self.action_space = gym.spaces.Discrete(len(self.actions))
