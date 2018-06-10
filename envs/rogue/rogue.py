@@ -8,7 +8,7 @@ import gym.spaces
 
 from roguelib_module.rogueinabox import RogueBox
 from roguelib_module.options import RogueOptions, RogueBoxOptions
-from roguelib_module.evaluator import LevelsRogueEvaluator
+from roguelib_module.evaluator import AmuletLevelsRogueEvaluator
 from .flags import RogueAcerFlags
 
 
@@ -42,8 +42,8 @@ class RogueEnv(gym.Env):
                           max_episode_seconds=None, timestep_limit=None)
 
     def __init__(self, flags=RogueAcerFlags()):
-        evaluator = LevelsRogueEvaluator(max_step_count=flags.max_episode_len,
-                                         episodes_for_evaluation=flags.episodes_for_evaluation)
+        evaluator = AmuletLevelsRogueEvaluator(max_step_count=flags.max_episode_len,
+                                               episodes_for_evaluation=flags.episodes_for_evaluation)
 
         self.rb = RogueBox(RogueBoxOptions(
                                rogue_options=RogueOptions(use_monsters=flags.use_monsters,
@@ -54,6 +54,7 @@ class RogueEnv(gym.Env):
                                evaluator=evaluator,
                                state_generator=flags.state_generator,
                                reward_generator=flags.reward_generator,
+                               transform_descent_action=flags.transform_descent_action,
                                refresh_after_commands=flags.refresh_after_commands))
 
         self.actions = flags.actions

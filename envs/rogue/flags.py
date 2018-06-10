@@ -38,5 +38,7 @@ class RogueAcerFlags(AcerFlags):
         self.hungertime = 1300
         # Maximum number of traps
         self.max_traps = 0
+        # Whether to turn the descent action into ascent when the amulet level is reached
+        self.transform_descent_action = True
         # Whether to send the refresh command after each action
         self.refresh_after_commands = False
