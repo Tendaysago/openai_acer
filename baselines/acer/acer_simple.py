@@ -355,12 +355,14 @@ class Acer():
                 keys_of_lists = {}  # type: dict[str, list[int]]
 
                 # init average stats
-                for key, val in envs_stats[0].items():
-                    if isinstance(val, list):
-                        avg_stats[key] = []
-                        keys_of_lists[key] = []
-                    else:
-                        avg_stats[key] = 0
+                for stats in envs_stats:
+                    for key, val in stats.items():
+                        if not key in avg_stats:
+                            if isinstance(val, list):
+                                avg_stats[key] = []
+                                keys_of_lists[key] = []
+                            else:
+                                avg_stats[key] = 0
 
                 # collect stats for each environment
                 for stats in envs_stats:
