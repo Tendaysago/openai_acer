@@ -27,26 +27,37 @@ class RogueThreadedVecEnv(ThreadedVecEnv):
     WorkerClass = RogueWorkerThread
 
     @staticmethod
-    def aggregate_stats(stats):
+    def aggregate_stats(stats, list_keys=('lvls_avg', 'alvls_avg')):
         """
-        Aggregates stats of different envs by padding the 'lvls_avg' list with zeros, such that all envs have the
-        same 'lvls_avg' length
+        Aggregates list stats of different envs by padding with zeros,
+        such that all lists for that key have the same length
 
         :param list[dict] stats:
             stats to aggregate
+        :param iterable[str] list_keys:
+            keys corresponding to a list stat
 
         :return:
             aggregated stats
         """
-        if 'lvls_avg' in stats[0]:
+        for key in list_keys:
             max_len = 0
             for s in stats:
-                max_len = max(max_len, len(s['lvls_avg']))
-            for s in stats:
-                lvls_avg = s['lvls_avg']
-                diff = max_len - len(lvls_avg)
-                if diff > 0:
-                    lvls_avg.extend([0]*diff)
+                try:
+                    s_len = len(s[key])
+                except KeyError:
+                    s_len = 0
+                max_len = max(max_len, s_len)
+            if max_len > 0:
+                for s in stats:
+                    try:
+                        list_avg = s[key]
+                    except KeyError:
+                        list_avg = []
+                        s[key] = list_avg
+                    diff = max_len - len(list_avg)
+                    if diff > 0:
+                        list_avg.extend([0]*diff)
         return stats
 
     def stats(self):
