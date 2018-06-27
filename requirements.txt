@@ -1,3 +1,4 @@
+tensorflow-gpu
 gym
 scipy
 opencv-python

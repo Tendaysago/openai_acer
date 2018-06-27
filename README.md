@@ -1,9 +1,26 @@
 
 # ACER for Rogue
 
-  This is a fork of [openai/baselines](https://github.com/openai/baselines) intended to use the ACER algorithm on Rogue with the rogueinabox library.
+  This is a fork of [openai/baselines](https://github.com/openai/baselines)
+  intended to use the ACER algorithm on Rogue with the Rogueinabox library.
+  In the future we plan to have OpenAI's baselines as dependencies rather
+  than this repo being a fork.
 
-## Cloning
+## Cloning and building
+
+  Clone the repository with the default git command:
+  ```console
+  git clone <URL>
+  ```
+  
+  Then execute:
+  ```console
+  make install
+  ```
+  
+  This will pull and build the Rogueinabox library.
+
+## Manual bulding
 
   The rogueinabox library is included as a submodule.
   In order for it to be correctly initialized and used, please clone this repo with the following command:
@@ -23,6 +40,6 @@
 
   and build Rogue:
   ```console
-  cd roguelib_module/rogue
-  ./build.sh
+  cd roguelib_module
+  make
   ```
