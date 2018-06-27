@@ -42,3 +42,11 @@ class RogueAcerFlags(AcerFlags):
         self.transform_descent_action = True
         # Whether to send the refresh command after each action
         self.refresh_after_commands = False
+        # Whether the dark rooms will be present in the game
+        self.disable_dark_rooms = False
+        # Whether the mazes will be present in the game
+        self.disable_mazes = False
+        # Whether to insert many more mazes in every level
+        self.more_mazes = False
+        # Which level the game will start at
+        self.start_level = 1
