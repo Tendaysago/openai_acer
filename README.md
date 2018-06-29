@@ -13,12 +13,26 @@
   git clone <URL>
   ```
   
+  Before executing the next step, you may want to create/activate your python
+  [virtual environment](https://docs.python.org/3/library/venv.html).
+  In order to create it:
+  ```console
+  python3 -m venv /path/to/venv
+  ```
+
+  And to activate it:
+  ```console
+  . /path/to/venv/bin/activate
+  ```
+  Make sure to do this before the next step, because it will update pip
+  and install python dependencies.
+  
   Then execute:
   ```console
   make install
   ```
   
-  This will pull and build the Rogueinabox library.
+  This will install python dependencies and pull and build the Rogueinabox library.
 
 ## Manual bulding
 
