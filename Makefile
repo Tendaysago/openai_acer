@@ -17,7 +17,7 @@
 
 all: install
 
-install: pydeps submodules-install build-rogue
+install: pydeps submodules-install build-roguelib
 
 update: submodules-update build-roguelib
 
@@ -35,8 +35,5 @@ submodules-update:
 	git submodule update --remote --recursive
 
 build-roguelib:
-	( \
-		cd rogue*; \
-		make; \
-		cd ..; \
-	)
+	$(MAKE) -C roguelib_module
+
