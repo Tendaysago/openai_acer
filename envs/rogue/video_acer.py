@@ -5,8 +5,8 @@ import tensorflow as tf
 from baselines.acer import models
 from baselines.common.cmd_util import arg_parser
 from baselines.common import tf_util
-from roguelib_module.baseagent import BaseAgent, RecordingWrapper
-from roguelib_module.options import AgentOptions
+from rogueinabox_lib.baseagent import BaseAgent, RecordingWrapper
+from rogueinabox_lib.options import AgentOptions
 
 from envs.rogue import RogueAcerFlags, RogueEnv
 
@@ -86,7 +86,8 @@ if __name__ == '__main__':
     parser.add_argument('--record_dir', '-r',
                         help="directory where to record frames on file (leave blank to avoid recording)",
                         default='')
-    parser.add_argument('--checkpoint_path', '-c', help="checkpoint file to load")
+    parser.add_argument('--checkpoint_path', '-c',
+                        help="checkpoint file to load (without extension) N.B.: if you don't provide one an untrained model will be used")
     args = parser.parse_args()
 
     flags = RogueAcerFlags.from_cfg(args.flags) if args.flags else RogueAcerFlags()

@@ -11,7 +11,9 @@ from envs import RogueEnv, RogueSubprocVecEnv, RogueAcerFlags
 
 def main():
     parser = arg_parser()
-    parser.add_argument('--flags', '-f', help="flags cfg file", default=None)
+    parser.add_argument('--flags', '-f',
+                        help="flags cfg file (will load checkpoint in save dir if found)",
+                        default=None)
     args = parser.parse_args()
 
     flags = RogueAcerFlags.from_cfg(args.flags) if args.flags else RogueAcerFlags()

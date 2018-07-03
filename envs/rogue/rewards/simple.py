@@ -1,12 +1,12 @@
 
-from roguelib_module.rewards import RewardGenerator
+from rogueinabox_lib.rewards import RewardGenerator
 from . import register
 
 
 """
 Define in this file custom reward generators in the following way:
 
-class GeneratorName(Superclass):  # a common superclass is roguelib_module.rewards.RewardGenerator
+class GeneratorName(Superclass):  # a common superclass is rogueinabox_lib.rewards.RewardGenerator
     # implementation
     ...
 

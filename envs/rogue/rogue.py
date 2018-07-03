@@ -6,9 +6,9 @@ import warnings
 import numpy as np
 import gym.spaces
 
-from roguelib_module.rogueinabox import RogueBox
-from roguelib_module.options import RogueOptions, RogueBoxOptions
-from roguelib_module.evaluator import AmuletLevelsRogueEvaluator
+from rogueinabox_lib.rogueinabox import RogueBox
+from rogueinabox_lib.options import RogueOptions, RogueBoxOptions
+from rogueinabox_lib.evaluator import AmuletLevelsRogueEvaluator
 from .flags import RogueAcerFlags
 
 

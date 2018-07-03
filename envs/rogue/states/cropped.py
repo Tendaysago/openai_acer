@@ -1,5 +1,5 @@
 
-from roguelib_module.states import CroppedView_SingleLayer_17x17_StateGenerator
+from rogueinabox_lib.states import CroppedView_SingleLayer_17x17_StateGenerator
 from . import register
 
 

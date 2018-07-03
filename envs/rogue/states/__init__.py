@@ -1,4 +1,4 @@
-from roguelib_module import states
+from rogueinabox_lib import states
 
 
 def register(cls):

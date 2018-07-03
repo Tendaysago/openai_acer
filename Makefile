@@ -35,5 +35,5 @@ submodules-update:
 	git submodule update --remote --recursive
 
 build-roguelib:
-	$(MAKE) -C roguelib_module
+	$(MAKE) -C rogueinabox_lib
 

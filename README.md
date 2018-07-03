@@ -4,7 +4,7 @@
   This is a fork of [openai/baselines](https://github.com/openai/baselines)
   intended to use the ACER algorithm on Rogue with the Rogueinabox library.
   In the future we plan to have OpenAI's baselines as dependencies rather
-  than this repo being a fork.
+  than have this repo being a fork.
 
 ## Cloning and building
 
@@ -54,6 +54,66 @@
 
   and build Rogue:
   ```console
-  cd roguelib_module
+  cd rogueinabox_lib
   make
   ```
+  
+## Training on Rogue
+
+  In order to launch a training on rogue simply execute:
+  ```console
+  . train_acer.sh -f <cfg_file>
+  ``` 
+  By default, if you don't provide `-f`, the file `cfg_rogue_default.cfg` will be used.
+  Feel free to create your own based on it or on the other configuration files we provide.
+  
+  For more information:
+  ```console
+  . train_acer.sh -h
+  ``` 
+  
+## Record a video of your agent playing
+
+  We provide `video_acer.sh` that will load a specified checkpoint and play Rogue on
+  a GUI that you can see in real time.
+  You can optionally have the script save each frame in plain text format.
+  
+  For more information:
+  ```console
+  . video_acer.sh -h
+  ```
+
+## Modifications wrt   [openai/baselines](https://github.com/openai/baselines)
+
+  We deleted everything that was not ACER related, i.e.:
+  - baselines/acktr
+  - baselines/ddpg
+  - baselines/deepq
+  - baselines/gail
+  - baselines/her
+  - baselines/ppo1
+  - baselines/trpo_mpi
+  - data/
+  
+  We modified:
+  - baselines/acer/*
+  - baselines/common/cmd_util.py
+  - baselines/common/tf_decay.py
+  - baselines/common/tf_util.py
+  - baselines/common/vec_env/subproc_vec_env.py
+  - README.md
+  
+  And added:
+  - baselines/acer/models/*
+  - baselines/acer/run_rogue.py
+  - baselines/common/vec_env/threaded_vec_env.py
+  - envs/
+  - openai/
+  - rogueinabox_lib/
+  - cfg_*
+  - AUTHORS
+  - LICENSE
+  - Makefile
+  - requirements.txt
+  - train_acer.sh
+  - video_acer.sh

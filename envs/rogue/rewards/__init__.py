@@ -1,4 +1,4 @@
-from roguelib_module import rewards
+from rogueinabox_lib import rewards
 
 
 def register(cls):
