@@ -1,4 +1,10 @@
 tensorflow==1.14
-gym
+gym==0.15.3
 scipy
 opencv-python
+neat-python
+matplotlib
+graphviz
+numpy==1.14.5
+pyte==0.8.0
+mock

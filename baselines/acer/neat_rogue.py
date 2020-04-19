@@ -19,13 +19,14 @@ VisitedRoom = None
 StairsFound = False
 ExploreStack = False
 class RoomInfo:
-    def __init__(self,id,leftup,rightbottom,doorlist,knowndoorlist,stairexisted):
+    def __init__(self,id,leftup,rightbottom,doorlist,knowndoorlist,stairexisted,stairsRoomdis):
         self.id = id
         self.leftup = leftup
         self.rightbottom = rightbottom
         self.doorlist = doorlist
         self.knowndoorlist = knowndoorlist
         self.stairexisted = stairexisted
+        self.stairsRoomdis = starisRoomdis
 
 class DoorInfo:
     def __init__(self,id,Y,X,visited,passagelist):
@@ -41,6 +42,15 @@ class PassageInfo:
         self.passage = passage
         self.connectroomid = connectroomid
 
+def MakeInput(nowRoomID):
+    input = numpy.zeros(22)
+    if(StairsFound):
+        inputs[0]=1.0
+    
+    Room = RoomInfoList[nowRoomID]
+
+    for d in range(len(Room.doorlist)):
+        
 
 def RoominfoPrint(nowRoomID):
     print("RoomInformation print!")

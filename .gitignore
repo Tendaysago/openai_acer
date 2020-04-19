@@ -5,7 +5,7 @@
 .pytest_cache
 .DS_Store
 .idea
-
+/virtual
 # Setuptools distribution and build folders.
 /dist/
 /build

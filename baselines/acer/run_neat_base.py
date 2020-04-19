@@ -9,7 +9,7 @@ from neat.parallel import ParallelEvaluator
 from rogueinabox_lib.frame_info import RogueFrameInfo
 import visualize
 
-n = 10
+n = 3
 
 test_n = 10
 TEST_MULTIPLIER = 1
@@ -19,7 +19,7 @@ TEST_REWARD_THRESHOLD = None
 ENVIRONMENT_NAME = None
 CONFIG_FILENAME = None
 
-NUM_WORKERS = 5
+NUM_WORKERS = 4
 CHECKPOINT_GENERATION_INTERVAL = 10
 CHECKPOINT_PREFIX = None
 GENERATE_PLOTS = False
@@ -74,7 +74,7 @@ def _run_neat(checkpoint, eval_network, eval_single_genome):
     p.add_reporter(neat.StdOutReporter(False))
     # Run until a solution is found.
     #winner = p.run(partial(_eval_genomes, eval_single_genome), n=MAX_GENS)
-    pe = neat.ParallelEvaluator(4,eval_single_genome)
+    pe = neat.ParallelEvaluator(NUM_WORKERS,eval_single_genome)
     winner = p.run(pe.evaluate, n=MAX_GENS)
 
     # Display the winning genome.

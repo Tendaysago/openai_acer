@@ -79,4 +79,4 @@ max_stagnation       = 20
 [DefaultReproduction]
 elitism            = 2
 survival_threshold = 0.1
-
+multi_optimization = NSGA2
