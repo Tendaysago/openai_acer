@@ -26,7 +26,7 @@ class RoomInfo:
         self.doorlist = doorlist
         self.knowndoorlist = knowndoorlist
         self.stairexisted = stairexisted
-        self.stairsRoomdis = starisRoomdis
+        self.stairsRoomdis = stairsRoomdis
 
 class DoorInfo:
     def __init__(self,id,Y,X,visited,passagelist):
@@ -42,15 +42,63 @@ class PassageInfo:
         self.passage = passage
         self.connectroomid = connectroomid
 
-def MakeInput(nowRoomID):
-    input = numpy.zeros(22)
-    if(StairsFound):
-        inputs[0]=1.0
-    
-    Room = RoomInfoList[nowRoomID]
+def StairsRoomdisDFS(nowRoomID, visitedDFSArr, Prevdis):
+    RoomInfoList[nowRoomID].stairsRoomdis=Prevdis
+    nxtDFSvisitedArr=visitedDFSArr
+    nxtDFSvisitedArr[nowRoomID]=True
+    for d in range(RoomInfoList[nowRoomID].doorlist):
+        if(d.visited):
+            nxtRoomID=d.passagelist[0].connectRoomID
+            if(not nxtDFSvisitedArr[nxtRoomID] and RoomInfoList[nxtRoomID].stairsRoomdis>Prevdis+1):
+                StairsRoomdisDFS(nxtRoomID, nxtDFSvisitedArr, Prevdis+1)
+        else:
+            continue
 
+def RoomObjectSearch(screen, leftup,rightbottom,obj):
+    ret=0
+    if(obj!="monster"):
+        for y in range(leftup[0],rightbottom[0]):
+            for x in range(leftup[1],rightbottom[1]):
+                if(screen[y][x]==obj):
+                    ret+=1
+    else:
+        for y in range(leftup[0],rightbottom[0]):
+            for x in range(leftup[1],rightbottom[1]):
+                if(screen[y][x].isupper()):
+                    ret+=1
+    return ret
+
+
+
+
+def MakeInput(nowRoomID):
+    global FrameInfo
+    screen = RB.get_screen()
+    FrameInfo = RBParser.parse_screen(screen)
+    input = np.full(22,-1.0,dtype=float)
+    if(StairsFound):
+        input[0]=1.0
+    Room = RoomInfoList[nowRoomID]
+    i=0
     for d in range(len(Room.doorlist)):
-        
+        if(d.visited):
+           input[i*4+1]=1.0
+           nxtroom = RoomInfoList[Room.doorlist[d].passagelist[0].connectroomid]
+           for nd in range(nxtroom.doorlist):
+                if(not nd.visited):
+                   input[i*4+2]+=1.0
+                input[i*4+3]=nxtroom.stairsRoomdis       
+        else:
+            input[i*4+1]=-1.0
+        i+=1
+    input[16]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,':')
+    input[17]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,'!')
+    input[18]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,'?')
+    input[19]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,')')
+    input[20]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,'monster')
+    input[21]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,'*')
+    return input
+                
 
 def RoominfoPrint(nowRoomID):
     print("RoomInformation print!")
@@ -81,9 +129,12 @@ def StairsCheck(screen,nowRoomID):
     global StairsFound
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
-    if(FrameInfo.get_list_of_positions_by_tile('%') != []):
+    if(not StairsFound and FrameInfo.get_list_of_positions_by_tile('%') != []):
         StairsFound=True
         RoomInfoList[nowRoomID].stairexisted=True
+        RoomInfoList[nowRoomID].stairsRoomdis=0
+        DFSArr=np.array([False]*15)
+        StairsRoomdisDFS(nowRoomID, DFSArr, 0)
 
 
 def Screenprint(screen):
@@ -103,6 +154,11 @@ def RoomInfoMake(PlayerY,PlayerX,screen,nowRoomID):
         VisitedRoom[nowRoomID]=True
     else:
         pass#print("Room id {0} is Not New Room. Not need make New Room Info.".format(nowRoomID))
+
+def StairsRoomdisCheck(nowRoomID,Prevdis):
+    if(Prevdis==100):
+        return
+    RoomInfoList[nowRoomID].stairsRoomdis=min(RoomInfoList[nowRoomID].stairsRoomdis,Prevdis+1)
 
 
 def RightMethod():
@@ -665,7 +721,7 @@ def eval_single_genome(genome, genome_config):
         VisitedRoom = np.array([False]*15)
         if(t==0):
             for k in range(15):
-                RoomInfoList.append(RoomInfo(k,(-1,-1),(-1,-1),[],[],False))
+                RoomInfoList.append(RoomInfo(k,(-1,-1),(-1,-1),[],[],False,100))
         done = False
         while not done:
             MovingStack = 0
@@ -690,12 +746,14 @@ def eval_single_genome(genome, genome_config):
             RoomInfoMake(Playery,Playerx,screen,nowRoomID)
             if(StairsFound==False):
                 StairsCheck(screen,nowRoomID)
-            if(RoomInfoList[nowRoomID].stairexisted==True):
-                FrameInfo = RBParser.parse_screen(screen)
-                StairsCoord=FrameInfo.get_list_of_positions_by_tile('%')
-                (StairsY,StairsX)=StairsCoord[0]
-                GotoStairs(nowRoomID,StairsY,StairsX)
-                break
+            Prevdis = RoomInfoList[nowRoomID].stairsRoomdis
+            Input = MakeInput(nowRoomID)
+            action = eval_network(net, Input)
+            """
+            print("----------Before Action----------")
+            RoominfoPrint(nowRoomID)
+            Screenprint(screen)
+            """          
             #print("Room "+ str(nowRoomID) + " leftup: " + str(RoomInfoList[nowRoomID].leftup))
             #print("Room "+ str(nowRoomID) + " rightbottom: " + str(RoomInfoList[nowRoomID].rightbottom))
             #for i in range(len(RoomInfoList[nowRoomID].doorlist)):
@@ -706,57 +764,8 @@ def eval_single_genome(genome, genome_config):
             #尚、ここで求めた道が明確に次の部屋と一本道である場合、次の部屋の対応する扉について、
             #求めた道を反転した道を次の部屋の既知の扉と道の情報とする。
             #明示的に一本道であると確定するには,get_tile_count('#')で探索前後における#の数を数える。
-            GoDoorID,GoDoorX,GoDoorY = NotvisitedDoorCheck(nowRoomID)
-            Beforepassagecount = FrameInfo.get_tile_count('#')
-            
-            """
-            print("----------Before Action----------")
-            RoominfoPrint(nowRoomID)
-            Screenprint(screen)
-            """
-
-            if(GoDoorID!=-1 and GoDoorX!=-1 and GoDoorY!=-1):
-                #print("There is unvisited Door! Explore Start!")
-                GotoDoor(nowRoomID,GoDoorID,GoDoorY,GoDoorX)
-                Passage = explore(nowRoomID,GoDoorID,Beforepassagecount)
-                if(len(Passage)>0 and Passage[0]==-1):
-                    print("Can't explore not visited door. End.")
-                    break
-            else:
                 #print("Unvisited Door is nothing. Random move Start!")
-                GoDoorID=-1
-                while(True):
-                    MovingStack+=1
-                    if(MovingStack>=100):
-                        print("Warning, Maybe Stack.")
-                        screen = RB.get_screen()
-                        Screenprint(screen)
-                        Playery=RB.player_pos[0]
-                        Playerx=RB.player_pos[1]
-                        nowRoomID=checkVisited(Playery,Playerx)
-                        RoominfoPrint(nowRoomID)
-                        break
-                    if(len(RoomInfoList[nowRoomID].doorlist)==0):
-                        print("Warning len(Doorlist)=0.")
-                        screen = RB.get_screen()
-                        Screenprint(screen)
-                        Playery=RB.player_pos[0]
-                        Playerx=RB.player_pos[1]
-                        nowRoomID=checkVisited(Playery,Playerx)
-                        RoominfoPrint(nowRoomID)
-                        print(rn)
-                        break
-                    GoDoorID = random.randrange(len(RoomInfoList[nowRoomID].doorlist))
-                    if(len(RoomInfoList[nowRoomID].doorlist[GoDoorID].passagelist)>0):
-                        break
-                if(MovingStack>=100 or len(RoomInfoList[nowRoomID].doorlist)==0):
-                    break
-                GoDoorX = RoomInfoList[nowRoomID].doorlist[GoDoorID].X
-                GoDoorY = RoomInfoList[nowRoomID].doorlist[GoDoorID].Y
-                Gopassage = RoomInfoList[nowRoomID].doorlist[GoDoorID].passagelist[0].passage
-                GotoDoor(nowRoomID,GoDoorID,GoDoorY,GoDoorX)
-                move(Gopassage)
-
+                
             #if(len(Passage)!=0):
             #    print("Get Next Room!")
             #else:
@@ -765,6 +774,8 @@ def eval_single_genome(genome, genome_config):
             Playerx = RB.player_pos[1]
             screen = RB.get_screen()
             nowRoomID = checkVisited(Playery,Playerx)
+            if(StairsFound==True and RoomInfoList[nowRoomID].stairsRoomdis==100):
+                StairsRoomdisCheck(nowRoomID,Prevdis)
 
             """
             print("----------After Action----------")
@@ -794,3 +805,71 @@ def learn(env,config_path):
                       environment=env,
                       config_path=config_path)
 
+def GotoStairsAct(nowRoomID,screen):
+    if(RoomInfoList[nowRoomID].stairexisted==True):
+        FrameInfo = RBParser.parse_screen(screen)
+        StairsCoord=FrameInfo.get_list_of_positions_by_tile('%')
+        (StairsY,StairsX)=StairsCoord[0]
+        GotoStairs(nowRoomID,StairsY,StairsX)
+        return True
+    else:
+        return False
+
+def GotoKnownRoomAct(nowRoomID,GoDoorID):
+    GoDoorID-=1
+    if(GoDoorID>len(RoomInfoList[nowRoomID].doorlist)):
+        print("GoDoorID is too large!")
+        return False
+    elif(not RoomInfoList[nowRoomID].doorlist[GoDoorID].visited):
+        print("Door ID:GoDoorID didn't visit!")
+        return False
+    GoDoorX = RoomInfoList[nowRoomID].doorlist[GoDoorID].X
+    GoDoorY = RoomInfoList[nowRoomID].doorlist[GoDoorID].Y
+    Gopassage = RoomInfoList[nowRoomID].doorlist[GoDoorID].passagelist[0].passage
+    GotoDoor(nowRoomID,GoDoorID,GoDoorY,GoDoorX)
+    move(Gopassage)
+    return True
+
+def FightAct(screen,nowRoomID):
+    Enemynum=RoomObjectSearch(screen,RoomInfoList[nowRoomID].leftp,RoomInfoList[nowRoomID].rightbottom,'monster')
+    if(Enemynum==0):
+        return False
+    for _ in range(30):
+        Playery = RB.player_pos[0]+1
+        Playerx = RB.player_pos[1]
+        screen = RB.get_screen()
+        for k in range(4):
+            if(screen[Playery+dy[k]][Playerx+dx[k]].isupper()):
+                CloseFight(k)
+                screen = RB.get_screen()
+                Screenprint(screen)
+                if('defeated' in screen[0]):
+                    Enemynum-=1
+        
+        Enemynum=RoomObjectSearch(screen,RoomInfoList[nowRoomID].leftp,RoomInfoList[nowRoomID].rightbottom,'monster')
+        if(Enemynum==0):
+            break
+    return True
+
+
+
+
+def CloseFight(Direction):
+    RB.send_command('f')
+    RB.send_command(command[Direction])
+
+
+def ExploreAct(nowRoomID):
+    GoDoorID,GoDoorX,GoDoorY = NotvisitedDoorCheck(nowRoomID)
+    Beforepassagecount = FrameInfo.get_tile_count('#')
+    if(GoDoorID!=-1 and GoDoorX!=-1 and GoDoorY!=-1):
+        #print("There is unvisited Door! Explore Start!")
+        GotoDoor(nowRoomID,GoDoorID,GoDoorY,GoDoorX)
+        Passage = explore(nowRoomID,GoDoorID,Beforepassagecount)
+        if(len(Passage)>0 and Passage[0]==-1):
+            print("Can't explore not visited door. End.")
+            return False
+        else:
+            return True
+    else:
+        return False
