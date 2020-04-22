@@ -10,7 +10,7 @@
 /dist/
 /build
 keys/
-
+.vscode
 # Virtualenv
 /env
 
