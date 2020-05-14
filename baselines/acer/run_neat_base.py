@@ -3,13 +3,15 @@ import datetime
 from functools import partial
 
 import gym
-import neat
+import sys
+sys.path.append('.../')
+import MOneat as neat
 import numpy as np
-from neat.parallel import ParallelEvaluator
+from MOneat.parallel import ParallelEvaluator
 from rogueinabox_lib.frame_info import RogueFrameInfo
 import visualize
 
-n = 3
+n = 1
 
 test_n = 10
 TEST_MULTIPLIER = 1
@@ -19,7 +21,7 @@ TEST_REWARD_THRESHOLD = None
 ENVIRONMENT_NAME = None
 CONFIG_FILENAME = None
 
-NUM_WORKERS = 4
+NUM_WORKERS = 1
 CHECKPOINT_GENERATION_INTERVAL = 10
 CHECKPOINT_PREFIX = None
 GENERATE_PLOTS = False
@@ -74,8 +76,11 @@ def _run_neat(checkpoint, eval_network, eval_single_genome):
     p.add_reporter(neat.StdOutReporter(False))
     # Run until a solution is found.
     #winner = p.run(partial(_eval_genomes, eval_single_genome), n=MAX_GENS)
-    pe = neat.ParallelEvaluator(NUM_WORKERS,eval_single_genome)
-    winner = p.run(pe.evaluate, n=MAX_GENS)
+    if(NUM_WORKERS>1):
+        pe = neat.ParallelEvaluator(NUM_WORKERS,eval_single_genome)
+        winner = p.run(pe.evaluate, n=MAX_GENS)
+    else:
+        winner = p.run(partial(_eval_genomes, eval_single_genome), n=MAX_GENS)
 
     # Display the winning genome.
     print('\nBest genome:\n{!s}'.format(winner))

@@ -1,4 +1,6 @@
-import neat
+import sys
+sys.path.append('.../')
+import MOneat as neat
 import numpy as np
 import types
 from . import run_neat_base
@@ -6,13 +8,22 @@ import random
 import math
 from time import sleep
 import copy
+import re
 from rogueinabox_lib.parser import RogueParser
 RB = None
 RBParser = None
 FrameInfo = None
+SPACE=chr(20)
+ESC=chr(27)
+STAR=chr(30)
 dx = [ 0, 1, 0, -1]
 dy = [ -1, 0, 1, 0]
 command =['k','l','j','h']
+atoz = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+Foodidx=-1
+FoodNum=0
+ExtraExplore=0
+Arrowidx=[]
 RoomInfoList = []
 maxRoomID = -1
 VisitedRoom = None
@@ -44,11 +55,12 @@ class PassageInfo:
 
 def StairsRoomdisDFS(nowRoomID, visitedDFSArr, Prevdis):
     RoomInfoList[nowRoomID].stairsRoomdis=Prevdis
-    nxtDFSvisitedArr=visitedDFSArr
+    nxtDFSvisitedArr=visitedDFSArr.copy()
     nxtDFSvisitedArr[nowRoomID]=True
-    for d in range(RoomInfoList[nowRoomID].doorlist):
-        if(d.visited):
-            nxtRoomID=d.passagelist[0].connectRoomID
+    for d in range(len(RoomInfoList[nowRoomID].doorlist)):
+        door=RoomInfoList[nowRoomID].doorlist[d]
+        if(door.visited):
+            nxtRoomID=door.passagelist[0].connectroomid
             if(not nxtDFSvisitedArr[nxtRoomID] and RoomInfoList[nxtRoomID].stairsRoomdis>Prevdis+1):
                 StairsRoomdisDFS(nxtRoomID, nxtDFSvisitedArr, Prevdis+1)
         else:
@@ -68,24 +80,61 @@ def RoomObjectSearch(screen, leftup,rightbottom,obj):
                     ret+=1
     return ret
 
+def CheckFoodnum():
+    global Foodidx
+    RB.send_command('e')
+    #print("NowFoodNum: {0}".format(RB.FoodNum))
+    return RB.FoodNum
+    """
+    sleep(0.01)
+    RB._update_screen()
+    screen=RB.get_screen()
+    Screenprint(screen)
+    sleep(0.04)
+    RB.pipe.write(STAR.encode())
+    RB._update_screen()
+    screen=RB.get_screen()
+    Screenprint(screen)
+    for y in range(len(screen)):
+        if('food' in screen[y]):
+            Foodidx=atoz[y]
+            if('Some' in screen[y]):
+                RB.pipe.write(' '.encode())
+                RB.pipe.write(ESC.encode())
+                return 1
+            RB.pipe.write(' '.encode())
+            RB.pipe.write(ESC.encode())
+            return int(re.sub("\\D","",screen[y]))
+    RB.pipe.write(' '.encode())
+    RB.pipe.write(ESC.encode())
+    return 0
+    """
+        
+def EatFood():
+    RB.send_command('e')
+    RB.send_command(Foodidx)
+
+
+
 
 
 
 def MakeInput(nowRoomID):
     global FrameInfo
+    global FoodNum
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
-    input = np.full(22,-1.0,dtype=float)
+    input = np.full(23,-1.0,dtype=float)
     if(StairsFound):
         input[0]=1.0
     Room = RoomInfoList[nowRoomID]
     i=0
     for d in range(len(Room.doorlist)):
-        if(d.visited):
+        if(Room.doorlist[d].visited):
            input[i*4+1]=1.0
            nxtroom = RoomInfoList[Room.doorlist[d].passagelist[0].connectroomid]
-           for nd in range(nxtroom.doorlist):
-                if(not nd.visited):
+           for nd in range(len(nxtroom.doorlist)):
+                if(not nxtroom.doorlist[nd].visited):
                    input[i*4+2]+=1.0
                 input[i*4+3]=nxtroom.stairsRoomdis       
         else:
@@ -97,6 +146,8 @@ def MakeInput(nowRoomID):
     input[19]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,')')
     input[20]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,'monster')
     input[21]=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,'*')
+    input[22]=CheckFoodnum()
+    FoodNum=input[22]
     return input
                 
 
@@ -460,6 +511,8 @@ def NotvisitedDoorCheck(nowRoomID):
 def GotoStairs(nowRoomID,StairsY,StairsX):
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
+    if(RoomInfoList[nowRoomID].stairexisted==False):
+        return False
     #階段のところまで地道にいき、階段にたどり着いたら階段を降りる。
     stackcheck=0
     stack=False
@@ -488,6 +541,7 @@ def GotoStairs(nowRoomID,StairsY,StairsX):
             print(screen[StairsY][StairsX])
             print(screen[RB.player_pos[0]][RB.player_pos[1]])
     RB.send_command('>')
+    return True
     
 
 def GotoDoor(nowRoomID,goDoorid,DoorY,DoorX):
@@ -675,7 +729,7 @@ def checkVisited(playerY,playerX):
     return maxRoomID
 
 def eval_network(net, net_input):
-    assert (len(net_input) == 363)
+    assert (len(net_input) == 23)
     #assert (result[0] >= -1.0 or result[0] <= 1.0)
     return np.argmax(net.activate(net_input))
 
@@ -692,12 +746,10 @@ def eval_single_genome(genome, genome_config):
     net = neat.nn.FeedForwardNetwork.create(genome, genome_config)
     total_reward = 0.0
     Roguetime=0
+    Initialize()
     for _ in range(run_neat_base.n):
         #print("--> Starting new episode")
-        ExploreStack = False
         MovingStack = 0
-        StairsFound = False
-        maxRoomID = -1
         t=0
         Roguetime+=1
         #print(Roguetime)
@@ -712,16 +764,8 @@ def eval_single_genome(genome, genome_config):
         inputs = inputs.reshape(inputs.size,1)
         nowRoomID=0
         #action = eval_network(net, inputs)
-        RB = run_neat_base.env.unwrapped.rb
-        RBParser = RB.parser
-        RBParser.reset()
-        RoomInfoList.clear()
         Playery = RB.player_pos[0]+1
         Playerx = RB.player_pos[1]
-        VisitedRoom = np.array([False]*15)
-        if(t==0):
-            for k in range(15):
-                RoomInfoList.append(RoomInfo(k,(-1,-1),(-1,-1),[],[],False,100))
         done = False
         while not done:
             MovingStack = 0
@@ -749,11 +793,12 @@ def eval_single_genome(genome, genome_config):
             Prevdis = RoomInfoList[nowRoomID].stairsRoomdis
             Input = MakeInput(nowRoomID)
             action = eval_network(net, Input)
-            """
+
+            
             print("----------Before Action----------")
             RoominfoPrint(nowRoomID)
             Screenprint(screen)
-            """          
+            Safe = ActMethod(action,nowRoomID)
             #print("Room "+ str(nowRoomID) + " leftup: " + str(RoomInfoList[nowRoomID].leftup))
             #print("Room "+ str(nowRoomID) + " rightbottom: " + str(RoomInfoList[nowRoomID].rightbottom))
             #for i in range(len(RoomInfoList[nowRoomID].doorlist)):
@@ -773,24 +818,26 @@ def eval_single_genome(genome, genome_config):
             Playery = RB.player_pos[0]+1
             Playerx = RB.player_pos[1]
             screen = RB.get_screen()
+            if(Safe==False):
+                print("Bad Action!")
+                genome.fitness = [ x + y for (x, y) in zip(genome.fitness,[-50,-50]) ]
+                done=True
+            if('Hungry' in screen and FoodNum>0):
+                EatFood()
             nowRoomID = checkVisited(Playery,Playerx)
             if(StairsFound==True and RoomInfoList[nowRoomID].stairsRoomdis==100):
                 StairsRoomdisCheck(nowRoomID,Prevdis)
 
-            """
+            
             print("----------After Action----------")
             RoominfoPrint(nowRoomID)
             Screenprint(screen)
-            """
-            
-            #sleep(2)
-            
-            #sleep(5)
-            #action = eval_network(net, inputs)
-            
-            #total_reward += reward
-
+            sleep(1.5)
             if done or t>=30:
+                if(Safe==True and t<30):
+                    genome.fitness = [ x + y for (x, y) in zip(genome.fitness,[30-ExtraExplore,ExtraExplore]) ]
+                if(t==30):
+                    genome.fitness = [ x + y for (x, y) in zip(genome.fitness,[-50,-50]) ]
                 #print("<-- Episode finished after {} time-steps with reward {}".format(t + 1, total_reward))
                 break
     #print(total_reward / run_neat_base.n)
@@ -798,6 +845,28 @@ def eval_single_genome(genome, genome_config):
     #print("Fin")
     return total_reward / run_neat_base.n
 
+def Initialize():
+    global RB
+    global RBParser
+    global FrameInfo
+    global maxRoomID
+    global RoomInfoList
+    global VisitedRoom
+    global StairsFound
+    global ExploreStack
+    global ExtraExplore
+    ExploreStack = False
+    MovingStack = 0
+    ExtraExplore=0
+    StairsFound = False
+    maxRoomID = -1
+    RB = run_neat_base.env.unwrapped.rb
+    RBParser = RB.parser
+    RBParser.reset()
+    RoomInfoList.clear()
+    VisitedRoom = np.array([False]*15)
+    for k in range(15):
+        RoomInfoList.append(RoomInfo(k,(-1,-1),(-1,-1),[],[],False,100))
 
 def learn(env,config_path):
     run_neat_base.run(eval_network,
@@ -816,8 +885,8 @@ def GotoStairsAct(nowRoomID,screen):
         return False
 
 def GotoKnownRoomAct(nowRoomID,GoDoorID):
-    GoDoorID-=1
-    if(GoDoorID>len(RoomInfoList[nowRoomID].doorlist)):
+    print(len(RoomInfoList[nowRoomID].doorlist))
+    if(GoDoorID+1>len(RoomInfoList[nowRoomID].doorlist)):
         print("GoDoorID is too large!")
         return False
     elif(not RoomInfoList[nowRoomID].doorlist[GoDoorID].visited):
@@ -830,8 +899,24 @@ def GotoKnownRoomAct(nowRoomID,GoDoorID):
     move(Gopassage)
     return True
 
+def GotoStairsRoomAct(nowRoomID):
+    if(StairsFound==False or RoomInfoList[nowRoomID].stairexisted==True):
+        return False
+    Mindis=50
+    GoDoorID=-1
+    for d in range(len(RoomInfoList[nowRoomID].doorlist)):
+        if(RoomInfoList[nowRoomID].doorlist[GoDoorID].visited and \
+            len(RoomInfoList[nowRoomID].doorlist[d].passagelist)>0 and \
+            RoomInfoList[RoomInfoList[nowRoomID].doorlist[d].passagelist[0].connectroomid].stairsRoomdis<Mindis):
+            Mindis=RoomInfoList[RoomInfoList[nowRoomID].doorlist[d].passagelist[0].connectroomid].stairsRoomdis
+            GoDoorID=d
+    if(GoDoorID==-1):
+        return False
+    return GotoKnownRoomAct(nowRoomID,GoDoorID)
+    
+
 def FightAct(screen,nowRoomID):
-    Enemynum=RoomObjectSearch(screen,RoomInfoList[nowRoomID].leftp,RoomInfoList[nowRoomID].rightbottom,'monster')
+    Enemynum=RoomObjectSearch(screen,RoomInfoList[nowRoomID].leftup,RoomInfoList[nowRoomID].rightbottom,'monster')
     if(Enemynum==0):
         return False
     for _ in range(30):
@@ -873,3 +958,27 @@ def ExploreAct(nowRoomID):
             return True
     else:
         return False
+
+def ActMethod(action,nowRoomID):
+    global ExtraExplore
+    if(action<4):
+        if(StairsFound==True):
+            ExtraExplore+=1
+        print("GotoKnownRoomAct ID: {0}!".format(action))
+        return GotoKnownRoomAct(nowRoomID,action)
+    elif(action==4):
+        if(StairsFound==True):
+            ExtraExplore+=1
+        print("Explore!")
+        return ExploreAct(nowRoomID)
+    elif(action==5):
+        screen=RB.get_screen()
+        print("Fight!")
+        return FightAct(screen,nowRoomID)
+    elif(action==6):
+        screen=RB.get_screen()
+        print("GotoStairs!")
+        return GotoStairsAct(nowRoomID,screen)
+    elif(action==7):
+        print("GotoStairsRoom!")
+        return GotoStairsRoomAct(nowRoomID)

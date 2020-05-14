@@ -32,7 +32,8 @@ class DefaultReproduction(DefaultClassConfig):
                                   [ConfigParameter('elitism', int, 0),
                                    ConfigParameter('survival_threshold', float, 0.2),
                                    ConfigParameter('min_species_size', int, 2),
-                                   ConfigParameter('multi_optimization', str, 'None')])
+                                   ConfigParameter('multi_optimization', str, 'None'),
+                                   ConfigParameter('nsga2threshold',float,0.4)])
 
     def __init__(self, config, reporters, stagnation):
         # pylint: disable=super-init-not-called
@@ -891,7 +892,7 @@ def selNSGA3(individuals, k, ref_points, nd="log", best_point=None,
         worst_point = numpy.max(fitnesses, axis=0)
     
     extreme_points = find_extreme_points(fitnesses, best_point, extreme_points)
-    front_worst = numpy.max(fitnesses[:sum(len(f) for f in pareto_fronts), :] axis=0)
+    front_worst = numpy.max(fitnesses[:sum(len(f) for f in pareto_fronts), :],axis=0)
     intercepts = find_intercepts(extreme_points, best_point, worst_point, front_worst)
     niches, dist = associate_to_niche(fitnesses, ref_points, best_point, intercepts)
 

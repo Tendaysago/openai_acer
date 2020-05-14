@@ -13,7 +13,7 @@ keys/
 .vscode
 # Virtualenv
 /env
-
+/Neatsave
 
 *.sublime-project
 *.sublime-workspace
