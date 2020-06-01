@@ -4,14 +4,23 @@ from __future__ import division
 from math import sqrt, exp
 
 
-def mean(values):
+def mean(values, d=None):
     values = list(values)
     return sum(map(float, values)) / len(values)
 
+def momean(values,d):
+    valuesmean=[]
+    for _ in range(d):
+        valuesmean.append(0.0)
+    for l in range(len(values)):
+        valuesmean = [ x + y for (x, y) in zip(valuesmean,values[l]) ]
+    for idx in range(d):
+        valuesmean[idx]/=len(values)
+    return valuesmean
+
+
 def llmean(values):
-    print(values)
     ret=[]
-    print(len(values[0]), len(values))
     tmp = []
     for i in range(len(values[0])):
         tmp=0
@@ -44,9 +53,23 @@ def variance(values):
     m = mean(values)
     return sum((v - m) ** 2 for v in values) / len(values)
 
+def movariance(values,d):
+    m = momean(values,d)
+    #print(values)
+    for l in range(len(values)):
+        valuesstdev = [ (x - y) ** 2 for (x, y) in zip(m,values[l]) ]
+    #print(valuesstdev)
+    for idx in range(d):
+        valuesstdev[idx]=sqrt(valuesstdev[idx])
+    #for idx in range(d):
+    #    valuesmean[idx]/=len(values)
+    return valuesstdev
 
-def stdev(values):
+def stdev(values,d=None):
     return sqrt(variance(values))
+
+def mostdev(values,d):
+    return movariance(values,d)
 
 
 def softmax(values):
@@ -61,4 +84,4 @@ def softmax(values):
 
 # Lookup table for commonly used {value} -> value functions.
 stat_functions = {'min': min, 'max': max, 'mean': mean, 'median': median,
-                  'median2': median2}
+                  'median2': median2, 'momean': momean}

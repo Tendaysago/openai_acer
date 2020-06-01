@@ -12,7 +12,7 @@ from itertools import count,chain
 from collections import defaultdict, namedtuple
 from operator import attrgetter, itemgetter
 from MOneat.config import ConfigParameter, DefaultClassConfig
-from MOneat.math_util import mean
+from MOneat.math_util import mean,momean
 from MOneat.six_util import iteritems, itervalues
 
 # TODO: Provide some sort of optional cross-species performance criteria, which
@@ -33,7 +33,10 @@ class DefaultReproduction(DefaultClassConfig):
                                    ConfigParameter('survival_threshold', float, 0.2),
                                    ConfigParameter('min_species_size', int, 2),
                                    ConfigParameter('multi_optimization', str, 'None'),
-                                   ConfigParameter('nsga2threshold',float,0.4)])
+                                   ConfigParameter('dimension', int, 1),
+                                   ConfigParameter('nsga2threshold',float,0.4),
+                                   ConfigParameter('nsga2nd',str,'standard'),
+                                   ConfigParameter('first_front_only',bool,False)])
 
     def __init__(self, config, reporters, stagnation):
         # pylint: disable=super-init-not-called
@@ -57,26 +60,56 @@ class DefaultReproduction(DefaultClassConfig):
     @staticmethod
     def compute_spawn(adjusted_fitness, previous_sizes, pop_size, min_species_size):
         """Compute the proper number of offspring per species (proportional to fitness)."""
-        af_sum = sum(adjusted_fitness)
+        if(type(adjusted_fitness[0]) is float):
+            af_sum = sum(adjusted_fitness)
 
-        spawn_amounts = []
-        for af, ps in zip(adjusted_fitness, previous_sizes):
-            if af_sum > 0:
-                s = max(min_species_size, af / af_sum * pop_size)
-            else:
-                s = min_species_size
+            spawn_amounts = []
+            for af, ps in zip(adjusted_fitness, previous_sizes):
+                if af_sum > 0:
+                    s = max(min_species_size, af / af_sum * pop_size)
+                else:
+                    s = min_species_size
 
-            d = (s - ps) * 0.5
-            c = int(round(d))
-            spawn = ps
-            if abs(c) > 0:
-                spawn += c
-            elif d > 0:
-                spawn += 1
-            elif d < 0:
-                spawn -= 1
+                d = (s - ps) * 0.5
+                c = int(round(d))
+                spawn = ps
+                if abs(c) > 0:
+                    spawn += c
+                elif d > 0:
+                    spawn += 1
+                elif d < 0:
+                    spawn -= 1
 
-            spawn_amounts.append(spawn)
+                spawn_amounts.append(spawn)
+        elif(type(adjusted_fitness[0]) is list):
+            partial_adjusted_fitness= []
+            af_sum = []
+            for d in range(len(adjusted_fitness[0])):
+                partial_adjusted_fitness.append([])
+                for idx in range(len(adjusted_fitness)):
+                    partial_adjusted_fitness[d].append(adjusted_fitness[idx][d])
+                af_sum.append(sum(partial_adjusted_fitness[d]))
+            mxidx = af_sum.index(max(af_sum))
+            spawn_amounts = []
+            for af, ps in zip(partial_adjusted_fitness[mxidx], previous_sizes):
+                if af_sum[mxidx] > 0:
+                    s = max(min_species_size, af / af_sum[mxidx] * pop_size)
+                else:
+                    s = min_species_size
+
+                d = (s - ps) * 0.5
+                c = int(round(d))
+                spawn = ps
+                if abs(c) > 0:
+                    spawn += c
+                elif d > 0:
+                    spawn += 1
+                elif d < 0:
+                    spawn -= 1
+
+                spawn_amounts.append(spawn)
+            
+
 
         # Normalize the spawn amounts so that the next generation is roughly
         # the population size requested by the user.
@@ -226,18 +259,38 @@ class DefaultReproduction(DefaultClassConfig):
         # species adjusted fitness computation.
         min_fitness = min(all_fitnesses)
         max_fitness = max(all_fitnesses)
+        #print(min_fitness)
+        #print(max_fitness)
         # Do not allow the fitness range to be zero, as we divide by it below.
         # TODO: The ``1.0`` below is rather arbitrary, and should be configurable.
-        fitness_range = max(1.0, max_fitness - min_fitness)
-        for afs in remaining_species:
-            # Compute adjusted fitness.
-            msf = mean([m.fitness for m in itervalues(afs.members)])
-            af = (msf - min_fitness) / fitness_range
-            afs.adjusted_fitness = af
+        if self.reproduction_config.multi_optimization=='None':
+            fitness_range = max(1.0, max_fitness - min_fitness)
+            for afs in remaining_species:
+                # Compute adjusted fitness.
+                msf = mean([m.fitness for m in itervalues(afs.members)])
+                af = (msf - min_fitness) / fitness_range
+                afs.adjusted_fitness = af
 
-        adjusted_fitnesses = [s.adjusted_fitness for s in remaining_species]
-        avg_adjusted_fitness = mean(adjusted_fitnesses) # type: float
-        self.reporters.info("Average adjusted fitness: {:.3f}".format(avg_adjusted_fitness))
+            adjusted_fitnesses = [s.adjusted_fitness for s in remaining_species]
+            avg_adjusted_fitness = mean(adjusted_fitnesses) # type: float
+            self.reporters.info("Average adjusted fitness: {:.3f}".format(avg_adjusted_fitness))
+        else:
+            fitness_range = []
+            dim = self.reproduction_config.dimension
+            for d in range(dim):
+                fitness_range.append(max(1.0,max_fitness[d]-min_fitness[d]))
+            for afs in remaining_species:
+                msf = momean([m.fitness for m in itervalues(afs.members)],dim)
+                af = []
+                for d in range(dim):
+                # Compute adjusted fitness.
+                    af.append((msf[d] - min_fitness[d]) / fitness_range[d])
+                afs.adjusted_fitness = af.copy()
+
+            adjusted_fitnesses = [s.adjusted_fitness for s in remaining_species]
+            avg_adjusted_fitness = momean(adjusted_fitnesses,dim) # type: float
+            self.reporters.info("Average adjusted fitness: {0}".format(avg_adjusted_fitness))
+
 
         # Compute the number of new members for each species in the new generation.
         previous_sizes = [len(s.members) for s in remaining_species]
@@ -258,7 +311,9 @@ class DefaultReproduction(DefaultClassConfig):
             assert spawn > 0
 
             # The species has at least one member for the next generation, so retain it.
+            #print(s.members)
             old_members = list(iteritems(s.members))
+            #print(old_members)
             s.members = {}
             species.species[s.key] = s
 
@@ -268,7 +323,7 @@ class DefaultReproduction(DefaultClassConfig):
             # Use at least two parents no matter what the threshold fraction result is.
             repro_cutoff = max(repro_cutoff, 2)
 
-            if self.reproduction_config.multi_optimization=='None' or repro_cutoff<self.reproduction_config.NSGA2threshold:
+            if self.reproduction_config.multi_optimization=='None' or repro_cutoff<self.reproduction_config.nsga2threshold:
                 # Sort members in order of descending fitness.
                 old_members.sort(reverse=True, key=lambda x: x[1].fitness)
 
@@ -285,9 +340,9 @@ class DefaultReproduction(DefaultClassConfig):
 
                 # Randomly choose parents and produce the number of offspring allotted to the species.
             
-            elif self.reproduction_config.multi_optimization=='NSGA2' and repro_cutoff>=self.reproduction_config.NSGA2threshold:
-
-                old_members = selNSGA2(old_members, repro_cutoff, self.reproduction_config.NSGA2nd)
+            elif self.reproduction_config.multi_optimization=='NSGA2' and repro_cutoff>=self.reproduction_config.nsga2threshold:
+                old_members = selNSGA2(s.key,old_members, repro_cutoff, self.reproduction_config.nsga2nd,self.reproduction_config.first_front_only)
+                #print(old_members)
 
             while spawn > 0:
                 spawn -= 1
@@ -308,11 +363,11 @@ class DefaultReproduction(DefaultClassConfig):
 
     
 
-def selNSGA2(individuals, k, nd='standard'):
+def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
     if nd == 'standard':
-        pareto_fronts = sortNondominated(individuals, k)
+        pareto_fronts = sortNondominated(individuals, k,first_front_only)
     elif nd == 'log':
-        pareto_fronts = sortLogNondominated(individuals, k)
+        pareto_fronts = sortLogNondominated(individuals, k,first_front_only)
     else:
         raise Exception('selNSGA2: The choice of non-dominated sorting '
                         'method "{0}" is invalid.'.format(nd))
@@ -320,13 +375,25 @@ def selNSGA2(individuals, k, nd='standard'):
     for front in pareto_fronts:
         assignCrowdingDist(front)
 
+    print(pareto_fronts)
     chosen = list(chain(*pareto_fronts[:-1]))
+    print("chosen")
+    print(chosen)
+    #chosen = list(iteritems(*pareto_fronts[:-1]))
     k = k- len(chosen)
     if k > 0:
-        sorted_front = sorted(pareto_fronts[-1], key=attrgetter("crowding_dist"), reverse=True)
+        #sorted_front = sorted(pareto_fronts[-1], attrgetter("crowding_dist"), reverse=True)
+        sorted_front = sorted(pareto_fronts[-1], key=lambda x: x[1].crowding_dist, reverse=True)
+        #reverse=True, key=lambda x: x[1].fitness
         chosen.extend(sorted_front[:k])
 
+    print("last chosen: {0}".format(chosen))
     return chosen
+
+def identity(obj):
+    """Returns directly the argument *obj*.
+    """
+    return obj
 
 def isdominated(fitnesses1, fitnesses2):
     """Returns whether or not *wvalues1* dominates *wvalues2*.
@@ -344,34 +411,68 @@ def isdominated(fitnesses1, fitnesses2):
             not_equal = False
     return not_equal
 
+def isdominates(fitnesses1, fitnesses2):
+        """Return true if each objective of *self* is not strictly worse than
+        the corresponding objective of *other* and at least one objective is
+        strictly better.
+
+        :param obj: Slice indicating on which objectives the domination is
+                    tested. The default value is `slice(None)`, representing
+                    every objectives.
+        """
+        not_equal = False
+        for self_fitnesses, other_fitnesses in zip(fitnesses1, fitnesses2):
+            if self_fitnesses > other_fitnesses:
+                not_equal = True
+            elif self_fitnesses < other_fitnesses:
+                return False
+        return not_equal
+
 def sortNondominated(individuals, k, first_front_only=False,reverse=False):
     if k==0:
         return []
-
+    sfitness = []
+    #for _, s in individuals:
+        #print(s.fitness)
+        #sfitness.append(s.fitness)
     map_fit_ind = defaultdict(list)
+    #print(individuals)
     for ind in individuals:
-        map_fit_ind[ind.fitness].append(ind)
-    fits = map_fit_ind.keys()
-
+        #print(ind)
+        map_fit_ind[tuple(ind[1].fitness)].append(ind)
+    fits = list(map_fit_ind.keys())
     current_front = []
     next_front = []
     dominating_fits = defaultdict(int)
     dominated_fits = defaultdict(list)
-
+    print("Fits: {0}".format(fits))
     for i, fit_i in enumerate(fits):
+        print("i, fit_i: {0}, {1}".format(i,fit_i))
+        print("map_fit_ind[fit_i]: {0}".format(map_fit_ind[fit_i]))
         for fit_j in fits[i+1:]:
-            if map_fit_ind[fit_i].dominates(map_fit_ind[fit_j]):
+            if isdominates(fit_i,fit_j):
                 dominating_fits[fit_j] += 1
                 dominated_fits[fit_i].append(fit_j)
-            elif map_fit_ind[fit_j].dominates(map_fit_ind[fit_i]):
+            elif isdominates(fit_j,fit_i):
                 dominating_fits[fit_i] += 1
                 dominated_fits[fit_j].append(fit_i)
         if dominating_fits[fit_i] == 0:
             current_front.append(fit_i)
 
-    fronts = [[]]
-    for fit in current_front:
-        fronts[-1].extend(map_fit_ind[fit])
+    fronts=None
+    if(first_front_only==False):
+        fronts = [[]]
+        for fit in current_front:
+            print(fit)
+            fronts[-1].extend(map_fit_ind[fit])
+            print(fronts)
+    else:
+        fronts = []
+        for fit in current_front:
+            print(fit)
+            fronts.append(map_fit_ind[fit])
+            print(fronts)
+    print("Current_front: {0}".format(current_front))
     pareto_sorted = len(fronts[-1])
 
     if not first_front_only:
@@ -408,7 +509,7 @@ def sortLogNondominated(individuals, k, first_front_only=False):
         unique_fits[ind.fitness].append(ind)
     
     #Launch the sorting algorithm
-    obj = len(individuals[0].fitness)-1
+    obj = len(individuals[0][1].fitness)-1
     fitnesses = unique_fits.keys()
     front = dict.fromkeys(fitnesses,0)
 
@@ -433,6 +534,18 @@ def sortLogNondominated(individuals, k, first_front_only=False):
         return pareto_fronts
     else:
         return pareto_fronts[0]
+
+def median(seq, key=identity):
+    """Returns the median of *seq* - the numeric value separating the higher
+    half of a sample from the lower half. If there is an even number of
+    elements in *seq*, it returns the mean of the two middle values.
+    """
+    sseq = sorted(seq, key=key)
+    length = len(seq)
+    if length % 2 == 1:
+        return key(sseq[(length - 1) // 2])
+    else:
+        return (key(sseq[(length - 1) // 2]) + key(sseq[length // 2])) / 2.0
 
 def sortNDHelperA(fitnesses, obj, front):
     """Create a non-dominated sorting of S on the first M objectives"""
@@ -605,9 +718,9 @@ def assignCrowdingDist(individuals):
         return
 
     distances = [0.0] * len(individuals)
-    crowd = [(ind.fitness, i ) for i, ind in enumerate(individuals)]
+    crowd = [(ind[1].fitness, i ) for i, ind in enumerate(individuals)]
 
-    nobj = len(individuals[0].fitness)
+    nobj = len(individuals[0][1].fitness)
 
     for i in range(nobj):
         crowd.sort(key=lambda element: element[0][i])
@@ -620,7 +733,7 @@ def assignCrowdingDist(individuals):
             distances[cur[1]] += (next[0][i] - prev[0][i]) / norm
     
     for i, dist in enumerate(distances):
-        individuals[i].crowding_dist = dist
+        individuals[i][1].crowding_dist = dist
 
 def selTournamentDCD(self,individuals, k):
     """Tournament selection based on dominance (D) between two individuals, if
@@ -827,7 +940,7 @@ class selNSGA3WithMemory(object):
         self.extreme_points = None
 
     def __call__(self, individuals, k):
-        chosen, memory = selNSGA3(invididuals, k, self.ref_points, self.nd, self.best_point, 
+        chosen, memory = selNSGA3(individuals, k, self.ref_points, self.nd, self.best_point, 
                                 self.worst_point, self.extreme_points, True)
         self.best_point = memory.best_point.reshape((1,-1))
         self.worst_point = memory.worst_point.reshape((1,-1))
@@ -903,11 +1016,11 @@ def selNSGA3(individuals, k, ref_points, nd="log", best_point=None,
 
     # Choose individuals from all fronts but the last
     chosen = list(chain(*pareto_fronts[:-1]))
-
+    #chosen = list(iteritems(*pareto_fronts[:-1]))
     # Use niching to select the remaining individuals
     sel_count = len(chosen)
     n = k- sel_count
-    selected = niching(pareto_fronts[-1], n, niches[self_count:], dist[sel_count:], niche_counts)
+    selected = niching(pareto_fronts[-1], n, niches[sel_count:], dist[sel_count:], niche_counts)
     chosen.extend(selected)
 
     if return_memory:
@@ -960,6 +1073,7 @@ def associate_to_niche(fitnesses, reference_points, best_point, intercepts):
 
     #Create distance matrix
     fn = numpy.repeat(numpy.expand_dims(fn, axis=1), len(reference_points), axis=1)
+    norm = numpy.linalg.norm(reference_points, axis=1)
     distances = numpy.sum(fn * reference_points, axis=2) / norm.reshape(1, -1)
     distances = distances[:, :, numpy.newaxis] * reference_points[numpy.newaxis, :, :] / norm[numpy.newaxis, :, numpy.newaxis]
     distances = numpy.linalg.norm(distances - fn, axis=2)
@@ -978,7 +1092,7 @@ def niching(individuals, k, niches, distances, niche_counts):
 
         # Find the available niches and the minimum niche count in them
         available_niches = numpy.zeros(len(niche_counts), dtype=numpy.bool)
-        available_niches[numpy.unique(nichs[available])] = True
+        available_niches[numpy.unique(niches[available])] = True
         min_count = numpy.min(niche_counts[available_niches])
 
         # Select at most n niches with the minimum count
@@ -1017,13 +1131,13 @@ def uniform_reference_points(nobj, p=4, scaling=None):
             points.append(ref)
         else:
             for i in range(left + 1):
-                ref[depth] = i/ total
-                points.extend(gen_refs_recursive(ref.copy(), nobj, left-i. total. depth+1))
+                ref[depth] = i / total
+                points.extend(gen_refs_recursive(ref.copy(), nobj, left-i, total, depth+1))
         return points
 
     ref_points = numpy.array(gen_refs_recursive(numpy.zeros(nobj), nobj, p, p, 0))
     if scaling is not None:
-        ref_points *~ scaling
+        ref_points *= scaling
         ref_points += (1- scaling) / nobj
 
     return ref_points

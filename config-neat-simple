@@ -1,8 +1,9 @@
 [NEAT]
 fitness_criterion     = max
 fitness_threshold     = 50
-pop_size              = 40
+pop_size              = 20
 reset_on_extinction   = False
+no_fitness_termination= True
 
 [DefaultGenome]
 # node activation options
@@ -73,7 +74,7 @@ weight_replace_rate     = 0.0245
 compatibility_threshold = 3.0
 
 [DefaultStagnation]
-species_fitness_func = mean
+species_fitness_func = momean
 max_stagnation       = 20
 
 [DefaultReproduction]
@@ -81,4 +82,7 @@ elitism            = 2
 survival_threshold = 0.1
 min_species_size = 2
 multi_optimization = NSGA2
+dimension = 3
 nsga2threshold = 0.4
+nsga2nd = standard
+first_front_only = True

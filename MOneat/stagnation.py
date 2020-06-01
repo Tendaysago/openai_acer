@@ -41,9 +41,13 @@ class DefaultStagnation(DefaultClassConfig):
             if s.fitness_history:
                 prev_fitness = max(s.fitness_history)
             else:
-                prev_fitness = -sys.float_info.max
-
-            s.fitness = self.species_fitness_func(s.get_fitnesses())
+                if self.species_fitness_func is stat_functions['momean']:
+                    prev_fitness = []
+                    for _ in range(len(s.get_fitnesses()[0])):
+                        prev_fitness.append(-sys.float_info.max)
+                else:
+                    prev_fitness = -sys.float_info.max
+            s.fitness = self.species_fitness_func(s.get_fitnesses(),len(s.get_fitnesses()[0]))
             s.fitness_history.append(s.fitness)
             s.adjusted_fitness = None
             if prev_fitness is None or s.fitness > prev_fitness:

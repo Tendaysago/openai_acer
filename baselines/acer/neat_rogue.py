@@ -510,7 +510,6 @@ def NotvisitedDoorCheck(nowRoomID):
 
 def GotoStairs(nowRoomID,StairsY,StairsX):
     screen = RB.get_screen()
-    FrameInfo = RBParser.parse_screen(screen)
     if(RoomInfoList[nowRoomID].stairexisted==False):
         return False
     #階段のところまで地道にいき、階段にたどり着いたら階段を降りる。
@@ -747,6 +746,7 @@ def eval_single_genome(genome, genome_config):
     total_reward = 0.0
     Roguetime=0
     Initialize()
+    fitness=[0.0,0.0,0.0]
     for _ in range(run_neat_base.n):
         #print("--> Starting new episode")
         MovingStack = 0
@@ -767,6 +767,7 @@ def eval_single_genome(genome, genome_config):
         Playery = RB.player_pos[0]+1
         Playerx = RB.player_pos[1]
         done = False
+        RightActnum=0
         while not done:
             MovingStack = 0
             #run_neat_base.env.render()
@@ -794,11 +795,12 @@ def eval_single_genome(genome, genome_config):
             Input = MakeInput(nowRoomID)
             action = eval_network(net, Input)
 
-            
+            """
             print("----------Before Action----------")
             RoominfoPrint(nowRoomID)
             Screenprint(screen)
-            Safe = ActMethod(action,nowRoomID)
+            """
+            Safe,Stairdown = ActMethod(action,nowRoomID)
             #print("Room "+ str(nowRoomID) + " leftup: " + str(RoomInfoList[nowRoomID].leftup))
             #print("Room "+ str(nowRoomID) + " rightbottom: " + str(RoomInfoList[nowRoomID].rightbottom))
             #for i in range(len(RoomInfoList[nowRoomID].doorlist)):
@@ -819,31 +821,42 @@ def eval_single_genome(genome, genome_config):
             Playerx = RB.player_pos[1]
             screen = RB.get_screen()
             if(Safe==False):
-                print("Bad Action!")
-                genome.fitness = [ x + y for (x, y) in zip(genome.fitness,[-50,-50]) ]
+                #print("Bad Action!")
+                fitness = [ x + y for (x, y) in zip(fitness,[-50,-50,0]) ]
                 done=True
+            else:
+                RightActnum+=1
+            if(Safe==True and Stairdown==True):
+                fitness = [ x + y for (x, y) in zip(fitness,[30-ExtraExplore,ExtraExplore,RightActnum]) ]
+                Initialize()
+                print("Get down stairs!")
+
             if('Hungry' in screen and FoodNum>0):
                 EatFood()
             nowRoomID = checkVisited(Playery,Playerx)
             if(StairsFound==True and RoomInfoList[nowRoomID].stairsRoomdis==100):
                 StairsRoomdisCheck(nowRoomID,Prevdis)
 
-            
+            """
             print("----------After Action----------")
             RoominfoPrint(nowRoomID)
             Screenprint(screen)
-            sleep(1.5)
-            if done or t>=30:
-                if(Safe==True and t<30):
-                    genome.fitness = [ x + y for (x, y) in zip(genome.fitness,[30-ExtraExplore,ExtraExplore]) ]
-                if(t==30):
-                    genome.fitness = [ x + y for (x, y) in zip(genome.fitness,[-50,-50]) ]
+            """
+            #sleep(0)
+            if done or t>=20:
+                if(Safe==True and t<20):
+                    fitness = [ x + y for (x, y) in zip(fitness,[30-ExtraExplore,ExtraExplore,RightActnum]) ]
+                    #fitness = [30-ExtraExplore,ExtraExplore,RightActnum]
+                if(t==20 or Safe==False):
+                    fitness = [ x + y for (x, y) in zip(fitness,[-50,-50,RightActnum]) ]
+                    #fitness = [-50,-50,RightActnum]
                 #print("<-- Episode finished after {} time-steps with reward {}".format(t + 1, total_reward))
+                print(fitness)
                 break
     #print(total_reward / run_neat_base.n)
     #print("<-- Episode finished after average {} time-steps with reward {}".format(t + 1//5, total_reward / run_neat_base.n))
     #print("Fin")
-    return total_reward / run_neat_base.n
+    return fitness
 
 def Initialize():
     global RB
@@ -885,12 +898,12 @@ def GotoStairsAct(nowRoomID,screen):
         return False
 
 def GotoKnownRoomAct(nowRoomID,GoDoorID):
-    print(len(RoomInfoList[nowRoomID].doorlist))
+    #print(len(RoomInfoList[nowRoomID].doorlist))
     if(GoDoorID+1>len(RoomInfoList[nowRoomID].doorlist)):
-        print("GoDoorID is too large!")
+        #print("GoDoorID is too large!")
         return False
     elif(not RoomInfoList[nowRoomID].doorlist[GoDoorID].visited):
-        print("Door ID:GoDoorID didn't visit!")
+        #print("Door ID:GoDoorID didn't visit!")
         return False
     GoDoorX = RoomInfoList[nowRoomID].doorlist[GoDoorID].X
     GoDoorY = RoomInfoList[nowRoomID].doorlist[GoDoorID].Y
@@ -952,7 +965,7 @@ def ExploreAct(nowRoomID):
         GotoDoor(nowRoomID,GoDoorID,GoDoorY,GoDoorX)
         Passage = explore(nowRoomID,GoDoorID,Beforepassagecount)
         if(len(Passage)>0 and Passage[0]==-1):
-            print("Can't explore not visited door. End.")
+            #print("Can't explore not visited door. End.")
             return False
         else:
             return True
@@ -964,21 +977,21 @@ def ActMethod(action,nowRoomID):
     if(action<4):
         if(StairsFound==True):
             ExtraExplore+=1
-        print("GotoKnownRoomAct ID: {0}!".format(action))
-        return GotoKnownRoomAct(nowRoomID,action)
+        #print("GotoKnownRoomAct ID: {0}!".format(action))
+        return GotoKnownRoomAct(nowRoomID,action),False
     elif(action==4):
         if(StairsFound==True):
             ExtraExplore+=1
-        print("Explore!")
-        return ExploreAct(nowRoomID)
+        #print("Explore!")
+        return ExploreAct(nowRoomID),False
     elif(action==5):
         screen=RB.get_screen()
-        print("Fight!")
-        return FightAct(screen,nowRoomID)
+        #print("Fight!")
+        return FightAct(screen,nowRoomID),False
     elif(action==6):
         screen=RB.get_screen()
-        print("GotoStairs!")
-        return GotoStairsAct(nowRoomID,screen)
+        #print("GotoStairs!")
+        return GotoStairsAct(nowRoomID,screen),True
     elif(action==7):
-        print("GotoStairsRoom!")
-        return GotoStairsRoomAct(nowRoomID)
+        #print("GotoStairsRoom!")
+        return GotoStairsRoomAct(nowRoomID),False

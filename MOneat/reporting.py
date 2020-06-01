@@ -6,8 +6,8 @@ may do something else such as checkpointing, or may do both.
 from __future__ import division, print_function
 
 import time
-
-from MOneat.math_util import mean, stdev
+from math import sqrt
+from MOneat.math_util import mean, stdev, momean, mostdev
 from MOneat.six_util import itervalues, iterkeys
 
 # TODO: Add a curses-based reporter.
@@ -114,8 +114,10 @@ class StdOutReporter(BaseReporter):
                 s = species_set.species[sid]
                 a = self.generation - s.created
                 n = len(s.members)
-                f = "--" if s.fitness is None else "{:.1f}".format(s.fitness)
-                af = "--" if s.adjusted_fitness is None else "{:.3f}".format(s.adjusted_fitness)
+                #f = "--" if s.fitness is None else "{:.1f}".format(s.fitness)
+                f = "--" if s.fitness is None else "{0}".format(s.fitness)
+                #af = "--" if s.adjusted_fitness is None else "{:.3f}".format(s.adjusted_fitness)
+                af = "--" if s.adjusted_fitness is None else "{0}".format(s.adjusted_fitness)
                 st = self.generation - s.last_improved
                 print(
                     "  {: >4}  {: >3}  {: >4}  {: >7}  {: >7}  {: >4}".format(sid, a, n, f, af, st))
@@ -135,12 +137,22 @@ class StdOutReporter(BaseReporter):
     def post_evaluate(self, config, population, species, best_genome):
         # pylint: disable=no-self-use
         fitnesses = [c.fitness for c in itervalues(population)]
-        fit_mean = mean(fitnesses)
-        fit_std = stdev(fitnesses)
+        #fit_mean = mean(fitnesses)
+        #fit_std = stdev(fitnesses)
+        #print('Population\'s average fitness: {0} stdev: {1:3.5f}'.format(fit_mean, fit_std))
+        if(type(fitnesses[0]) is float):
+            fit_mean = mean(fitnesses)
+            fit_std = stdev(fitnesses)
+            print('Population\'s average fitness: {0:3.5f} stdev: {1:3.5f}'.format(fit_mean, fit_std))
+        elif(type(fitnesses[0]) is list):
+            fit_mean = momean(fitnesses,len(fitnesses[0]))
+            fit_std = mostdev(fitnesses,len(fitnesses[0]))
+            #fit_std = sqrt(sum((v - fit_mean) ** 2 for v in fitnesses) / len(fitnesses))
+            print('Population\'s average fitness: {0} stdev: {1}'.format(fit_mean, fit_std))
+
         best_species_id = species.get_species_id(best_genome.key)
-        print('Population\'s average fitness: {0:3.5f} stdev: {1:3.5f}'.format(fit_mean, fit_std))
         print(
-            'Best fitness: {0:3.5f} - size: {1!r} - species {2} - id {3}'.format(best_genome.fitness,
+            'Best fitness: {0} - size: {1!r} - species {2} - id {3}'.format(best_genome.fitness,
                                                                                  best_genome.size(),
                                                                                  best_species_id,
                                                                                  best_genome.key))

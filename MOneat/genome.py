@@ -170,9 +170,26 @@ class DefaultGenome(object):
         self.nodes = {}
 
         # Fitness results.
-        #self.fitness = None
-        self.fitness = []
+        self.fitness = None
+        #self.fitness = []
         self.crowding_dist = None
+
+    def dominates(self, other, obj=slice(None)):
+        """Return true if each objective of *self* is not strictly worse than
+        the corresponding objective of *other* and at least one objective is
+        strictly better.
+
+        :param obj: Slice indicating on which objectives the domination is
+                    tested. The default value is `slice(None)`, representing
+                    every objectives.
+        """
+        not_equal = False
+        for self_wvalue, other_wvalue in zip(self.fitness[obj], other.fitness[obj]):
+            if self_wvalue > other_wvalue:
+                not_equal = True
+            elif self_wvalue < other_wvalue:
+                return False
+        return not_equal
 
     def configure_new(self, config):
         """Configure a new genome based on the given configuration."""
@@ -235,8 +252,9 @@ class DefaultGenome(object):
 
     def configure_crossover(self, genome1, genome2, config):
         """ Configure a new genome by crossover from two parent genomes. """
-        assert isinstance(genome1.fitness, (list(int), list(float)))
-        assert isinstance(genome2.fitness, (list(int), list(float)))
+        #print(genome1.fitness,genome2.fitness)
+        #assert isinstance(genome1.fitness, (list(int), list(float)))
+        #assert isinstance(genome2.fitness, (list(int), list(float)))
         #assert isinstance(genome1.fitness, (int, float))
         #assert isinstance(genome2.fitness, (int, float))
         if genome1.fitness > genome2.fitness:

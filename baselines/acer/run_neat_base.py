@@ -21,13 +21,13 @@ TEST_REWARD_THRESHOLD = None
 ENVIRONMENT_NAME = None
 CONFIG_FILENAME = None
 
-NUM_WORKERS = 1
+NUM_WORKERS = 4
 CHECKPOINT_GENERATION_INTERVAL = 10
 CHECKPOINT_PREFIX = None
 GENERATE_PLOTS = False
 
 PLOT_FILENAME_PREFIX = None
-MAX_GENS = None
+MAX_GENS = 100
 RENDER_TESTS = False
 
 env = None
@@ -69,11 +69,11 @@ def _run_neat(checkpoint, eval_network, eval_single_genome):
 
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-
+    p.add_reporter(neat.StdOutReporter(True))
     p.add_reporter(neat.Checkpointer(CHECKPOINT_GENERATION_INTERVAL, filename_prefix=CHECKPOINT_PREFIX))
 
     # Add a stdout reporter to show progress in the terminal.
-    p.add_reporter(neat.StdOutReporter(False))
+    #p.add_reporter(neat.StdOutReporter(False))
     # Run until a solution is found.
     #winner = p.run(partial(_eval_genomes, eval_single_genome), n=MAX_GENS)
     if(NUM_WORKERS>1):
