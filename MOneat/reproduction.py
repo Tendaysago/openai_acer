@@ -375,10 +375,10 @@ def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
     for front in pareto_fronts:
         assignCrowdingDist(front)
 
-    print(pareto_fronts)
+    #print(pareto_fronts)
     chosen = list(chain(*pareto_fronts[:-1]))
-    print("chosen")
-    print(chosen)
+    #print("chosen")
+    #print(chosen)
     #chosen = list(iteritems(*pareto_fronts[:-1]))
     k = k- len(chosen)
     if k > 0:
@@ -387,7 +387,7 @@ def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
         #reverse=True, key=lambda x: x[1].fitness
         chosen.extend(sorted_front[:k])
 
-    print("last chosen: {0}".format(chosen))
+    #print("last chosen: {0}".format(chosen))
     return chosen
 
 def identity(obj):
@@ -445,10 +445,10 @@ def sortNondominated(individuals, k, first_front_only=False,reverse=False):
     next_front = []
     dominating_fits = defaultdict(int)
     dominated_fits = defaultdict(list)
-    print("Fits: {0}".format(fits))
+    #print("Fits: {0}".format(fits))
     for i, fit_i in enumerate(fits):
-        print("i, fit_i: {0}, {1}".format(i,fit_i))
-        print("map_fit_ind[fit_i]: {0}".format(map_fit_ind[fit_i]))
+        #print("i, fit_i: {0}, {1}".format(i,fit_i))
+        #print("map_fit_ind[fit_i]: {0}".format(map_fit_ind[fit_i]))
         for fit_j in fits[i+1:]:
             if isdominates(fit_i,fit_j):
                 dominating_fits[fit_j] += 1
@@ -463,16 +463,16 @@ def sortNondominated(individuals, k, first_front_only=False,reverse=False):
     if(first_front_only==False):
         fronts = [[]]
         for fit in current_front:
-            print(fit)
+            #print(fit)
             fronts[-1].extend(map_fit_ind[fit])
-            print(fronts)
+            #print(fronts)
     else:
         fronts = []
         for fit in current_front:
-            print(fit)
+            #print(fit)
             fronts.append(map_fit_ind[fit])
-            print(fronts)
-    print("Current_front: {0}".format(current_front))
+            #print(fronts)
+    #print("Current_front: {0}".format(current_front))
     pareto_sorted = len(fronts[-1])
 
     if not first_front_only:

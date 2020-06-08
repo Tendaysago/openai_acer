@@ -1,7 +1,7 @@
 [NEAT]
 fitness_criterion     = max
 fitness_threshold     = 50
-pop_size              = 20
+pop_size              = 100
 reset_on_extinction   = False
 no_fitness_termination= True
 
@@ -40,7 +40,7 @@ enabled_default         = True
 enabled_mutate_rate     = 0.01
 
 feed_forward            = True
-initial_connection      = partial_direct 0.2
+initial_connection      = fs_neat_nohidden
 
 # node add/remove rates
 #node_add_prob           = 0.25
@@ -49,7 +49,7 @@ node_delete_prob        = 0.1
 
 # network parameters
 num_hidden              = 50
-num_inputs              = 23
+num_inputs              = 27
 num_outputs             = 8
 
 # node response options
@@ -75,12 +75,12 @@ compatibility_threshold = 3.0
 
 [DefaultStagnation]
 species_fitness_func = momean
-max_stagnation       = 20
+max_stagnation       = 10
 
 [DefaultReproduction]
 elitism            = 2
 survival_threshold = 0.1
-min_species_size = 2
+min_species_size = 10
 multi_optimization = NSGA2
 dimension = 3
 nsga2threshold = 0.4

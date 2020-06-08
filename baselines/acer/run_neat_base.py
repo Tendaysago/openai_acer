@@ -11,7 +11,7 @@ from MOneat.parallel import ParallelEvaluator
 from rogueinabox_lib.frame_info import RogueFrameInfo
 import visualize
 
-n = 1
+n = 5
 
 test_n = 10
 TEST_MULTIPLIER = 1

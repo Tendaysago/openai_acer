@@ -19,7 +19,7 @@ class Checkpointer(BaseReporter):
     A reporter class that performs checkpointing using `pickle`
     to save and restore populations (and other aspects of the simulation state).
     """
-    def __init__(self, generation_interval=100, time_interval_seconds=300,
+    def __init__(self, generation_interval=100, time_interval_seconds=30000,
                  filename_prefix='neat-checkpoint-'):
         """
         Saves the current state (at the end of a generation) every ``generation_interval`` generations or
