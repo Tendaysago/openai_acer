@@ -344,6 +344,15 @@ class DefaultReproduction(DefaultClassConfig):
                 old_members = selNSGA2(s.key,old_members, repro_cutoff, self.reproduction_config.nsga2nd,self.reproduction_config.first_front_only)
                 #print(old_members)
 
+            if self.reproduction_config.elitism > 0:
+                    for i, m in old_members[:self.reproduction_config.elitism]:
+                        new_population[i] = m
+                        spawn -= 1
+
+            if spawn <= 0:
+                continue
+
+            old_members = old_members[:repro_cutoff]
             while spawn > 0:
                 spawn -= 1
 

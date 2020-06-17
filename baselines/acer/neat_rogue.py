@@ -9,7 +9,6 @@ import math
 from time import sleep
 import copy
 import re
-import types
 from rogueinabox_lib.parser import RogueParser
 RB = None
 RBParser = None
@@ -27,6 +26,8 @@ ExtraExplore=0
 Arrowidx=[]
 RoomInfoList = []
 maxRoomID = -1
+RightActnum = 0
+ExploreActnum= 0
 VisitedRoom = None
 StairsFound = False
 ExploreStack = False
@@ -215,7 +216,7 @@ def StairsRoomdisCheck(nowRoomID,Prevdis):
     RoomInfoList[nowRoomID].stairsRoomdis=min(RoomInfoList[nowRoomID].stairsRoomdis,Prevdis+1)
 
 
-def RightMethod():
+def RightMethod(playery,playerx):
     global FrameInfo
     global ExploreStack
     global GlobalStackCheck
@@ -229,8 +230,11 @@ def RightMethod():
         print("Warning! player_pos type is NoneType!")
         print(len(screen),len(screen[0]))
         Screenprint(screen)
-    PlayerY,PlayerX = FrameInfo.get_player_pos()
-    PlayerY+=1
+        RB.send_command('i')
+        screen=RB.get_screen()
+        Screenprint(screen)
+    PlayerY,PlayerX = playery, playerx
+    #PlayerY+=1
     stackcheck=0
     stack=False
     if(FrameInfo.get_tile_below_player()!='+'):
@@ -238,7 +242,7 @@ def RightMethod():
             #扉からの最初の一歩
     dir = 0
     for dir in range(4):
-        if(screen[PlayerY+dy[dir]][PlayerX+dx[dir]]=='#'):
+        if(screen[PlayerY+dy[dir]][PlayerX+dx[dir]]=='#' or screen[PlayerY+dy[dir]][PlayerX+dx[dir]]==' '):
             RB.send_command(command[dir])
             prevdir = dir
             passage.append(dir)
@@ -558,6 +562,10 @@ def GotoStairs(nowRoomID,StairsY,StairsX):
     if(len(RB.player_pos)<1):
         screen=RB.get_screen()
         Screenprint(screen)
+        RB.pipe.write(RB.refresh_command)
+        sleep(RB.busy_wait_seconds*400)
+        screen=RB.get_screen()
+        Screenprint(screen)
         return False
     RB.send_command('>')
     return True
@@ -623,7 +631,13 @@ def GotoDoor(nowRoomID,goDoorid,DoorY,DoorX):
     if(len(RB.player_pos)<1):
         screen=RB.get_screen()
         Screenprint(screen)
+        RB.pipe.write(RB.refresh_command)
+        sleep(RB.busy_wait_seconds*400)
+        screen=RB.get_screen()
+        Screenprint(screen)
         print("Player(Y,X):({0},{1})".format(PlayerY,PlayerX))
+
+    return PlayerY,PlayerX
 
 #通ったことのある通路の情報に従って別の部屋に移動する。
 def move(passage):
@@ -637,7 +651,7 @@ def move(passage):
 
 #今の部屋から行ける扉について,行ったことのない扉を探索する。
 #即ち,NNが新しい場所へ探索すると決めたら、この関数を実行してもらう。
-def explore(nowRoomID,GoDoorID,Beforepassagecount):
+def explore(nowRoomID,GoDoorID,Beforepassagecount,playery,playerx):
     global RoomInfoList
     global FrameInfo
     global GlobalStackCheck
@@ -650,7 +664,7 @@ def explore(nowRoomID,GoDoorID,Beforepassagecount):
 
     #扉までついたら,右手法に従って通路を進んでもらう.
     #通路を実際に進むところは丸ごとRightMethod内で行なっている
-    Passage = RightMethod()
+    Passage = RightMethod(playery,playerx)
     if(ExploreStack==True):
         GlobalStackCheck=True
         return [-1]
@@ -721,6 +735,8 @@ def eval_single_genome(genome, genome_config):
 
 def RogueTrying(net):
     fitness=[0.0,0.0,0.0]
+    global RightActnum
+    global ExploreActnum
     for _ in range(run_neat_base.n):
         Roguetime=0
         Initialize()
@@ -743,7 +759,6 @@ def RogueTrying(net):
         Playery = RB.player_pos[0]+1
         Playerx = RB.player_pos[1]
         done = False
-        RightActnum=0
         while not done:
             MovingStack = 0
             #run_neat_base.env.render()
@@ -791,9 +806,11 @@ def RogueTrying(net):
                 done=True
             else:
                 RightActnum+=1
+                if(action==4):
+                    ExploreActnum+=1
             if(Safe==True and Stairdown==True):
-                fitness = [ x + y for (x, y) in zip(fitness,[30-ExtraExplore,ExtraExplore,RightActnum]) ]
-                print("Get down stairs! Add Fitness: {0}".format([30-ExtraExplore,ExtraExplore,RightActnum]))
+                fitness = [ x + y for (x, y) in zip(fitness,[ExploreActnum,ExtraExplore,RightActnum]) ]
+                print("Get down stairs! Add Fitness: {0}".format([ExploreActnum,ExtraExplore,RightActnum]))
                 Initialize()
                 t=0
 
@@ -811,12 +828,12 @@ def RogueTrying(net):
             #sleep(0)
             if done or t>=20:
                 if(Safe==True and t<20):
-                    fitness = [ x + y for (x, y) in zip(fitness,[30-ExtraExplore,ExtraExplore,RightActnum]) ]
+                    fitness = [ x + y for (x, y) in zip(fitness,[ExploreActnum,ExtraExplore,RightActnum]) ]
                     print("???")
 
                     #fitness = [30-ExtraExplore,ExtraExplore,RightActnum]
                 if(t==20 or Safe==False):
-                    fitness = [ x + y for (x, y) in zip(fitness,[-50,-50,RightActnum]) ]
+                    fitness = [ x + y for (x, y) in zip(fitness,[-30+ExploreActnum,-50,RightActnum]) ]
                     #fitness = [-50,-50,RightActnum]
                 #print(fitness)
                 break
@@ -836,10 +853,14 @@ def Initialize():
     global ExploreStack
     global ExtraExplore
     global GlobalStackCheck
+    global RightActnum
+    global ExploreActnum
     ExploreStack = False
     GlobalStackCheck=False
     MovingStack = 0
     ExtraExplore=0
+    RightActnum = 0
+    ExploreActnum = 0
     StairsFound = False
     maxRoomID = -1
     RB = run_neat_base.env.unwrapped.rb
@@ -933,8 +954,8 @@ def ExploreAct(nowRoomID):
     Beforepassagecount = FrameInfo.get_tile_count('#')
     if(GoDoorID!=-1 and GoDoorX!=-1 and GoDoorY!=-1):
         #print("There is unvisited Door! Explore Start!")
-        GotoDoor(nowRoomID,GoDoorID,GoDoorY,GoDoorX)
-        Passage = explore(nowRoomID,GoDoorID,Beforepassagecount)
+        py,px = GotoDoor(nowRoomID,GoDoorID,GoDoorY,GoDoorX)
+        Passage = explore(nowRoomID,GoDoorID,Beforepassagecount,py,px)
         if(len(Passage)>0 and Passage[0]==-1):
             #print("Can't explore not visited door. End.")
             return False

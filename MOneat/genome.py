@@ -219,7 +219,7 @@ class DefaultGenome(object):
                         "Warning: initial_connection = fs_neat will not connect to hidden nodes;",
                         "\tif this is desired, set initial_connection = fs_neat_nohidden;",
                         "\tif not, set initial_connection = fs_neat_hidden",
-                        sep='\n', file=sys.stderr);
+                        sep='\n', file=sys.stderr)
                 self.connect_fs_neat_nohidden(config)
         elif 'full' in config.initial_connection:
             if config.initial_connection == 'full_nodirect':
@@ -232,7 +232,7 @@ class DefaultGenome(object):
                         "Warning: initial_connection = full with hidden nodes will not do direct input-output connections;",
                         "\tif this is desired, set initial_connection = full_nodirect;",
                         "\tif not, set initial_connection = full_direct",
-                        sep='\n', file=sys.stderr);
+                        sep='\n', file=sys.stderr)
                 self.connect_full_nodirect(config)
         elif 'partial' in config.initial_connection:
             if config.initial_connection == 'partial_nodirect':
@@ -247,7 +247,7 @@ class DefaultGenome(object):
                             config.connection_fraction),
                         "\tif not, set initial_connection = partial_direct {0}".format(
                             config.connection_fraction),
-                        sep='\n', file=sys.stderr);
+                        sep='\n', file=sys.stderr)
                 self.connect_partial_nodirect(config)
 
     def configure_crossover(self, genome1, genome2, config):
@@ -466,23 +466,6 @@ class DefaultGenome(object):
 
         distance = node_distance + connection_distance
         return distance
-
-    def dominates(self, other, obj=slice(None)):
-        """Return true if each objective of *self* is not strictly worse than
-        the corresponding objective of *other* and at least one objective is
-        strictly better.
-
-        :param obj: Slice indicating on which objectives the domination is
-                    tested. The default value is `slice(None)`, representing
-                    every objectives.
-        """
-        not_equal = False
-        for self_fitness, other_fitness in zip(self.fitness[obj], other.fitness[obj]):
-            if self_fitness > other_fitness:
-                not_equal = True
-            elif self_fitness < other_fitness:
-                return False
-        return not_equal
 
     def size(self):
         """
