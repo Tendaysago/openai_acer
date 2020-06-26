@@ -1,6 +1,8 @@
 {
     "python.pythonPath": "virtual/bin/python3",
     "files.associations": {
-        "curses.h": "c"
+        "curses.h": "c",
+        "*.tcc": "c",
+        "sstream": "c"
     }
 }

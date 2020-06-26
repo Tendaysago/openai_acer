@@ -562,7 +562,7 @@ def GotoStairs(nowRoomID,StairsY,StairsX):
     if(len(RB.player_pos)<1):
         screen=RB.get_screen()
         Screenprint(screen)
-        RB.pipe.write(RB.refresh_command)
+        RB.send_command('i')
         sleep(RB.busy_wait_seconds*400)
         screen=RB.get_screen()
         Screenprint(screen)
@@ -631,7 +631,7 @@ def GotoDoor(nowRoomID,goDoorid,DoorY,DoorX):
     if(len(RB.player_pos)<1):
         screen=RB.get_screen()
         Screenprint(screen)
-        RB.pipe.write(RB.refresh_command)
+        RB.send_command('i')
         sleep(RB.busy_wait_seconds*400)
         screen=RB.get_screen()
         Screenprint(screen)

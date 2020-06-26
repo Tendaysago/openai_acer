@@ -40,7 +40,7 @@ enabled_default         = True
 enabled_mutate_rate     = 0.01
 
 feed_forward            = True
-initial_connection      = partial_direct 0.03
+initial_connection      = partial_direct 0.01
 
 # node add/remove rates
 #node_add_prob           = 0.25
@@ -71,8 +71,8 @@ weight_mutate_rate      = 0.460
 weight_replace_rate     = 0.0245
 
 [DefaultSpeciesSet]
-compatibility_threshold = 3.0
-
+#compatibility_threshold = 3.0
+compatibility_threshold = 7.0
 [DefaultStagnation]
 species_fitness_func = momean
 max_stagnation       = 10

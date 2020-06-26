@@ -6,15 +6,18 @@
 .DS_Store
 .idea
 /virtual
+/rogueinabox_lib
+/rogueinabox_lib_backup
+/rogueinabox_libold
 # Setuptools distribution and build folders.
 /dist/
 /build
 keys/
-.vscode
+.vscode/
 # Virtualenv
 /env
 /Neatsave
-
+cp_config-*
 *.sublime-project
 *.sublime-workspace
 

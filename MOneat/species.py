@@ -105,6 +105,8 @@ class DefaultSpeciesSet(DefaultClassConfig):
             for sid, rid in iteritems(new_representatives):
                 rep = population[rid]
                 d = distances(rep, g)
+                if(d<7.0):
+                    print("species sid:{0}, rid:{1},distance with g:{2}".format(sid,rid,d))
                 if d < compatibility_threshold:
                     candidates.append((d, sid))
 
