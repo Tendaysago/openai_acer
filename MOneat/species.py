@@ -15,6 +15,7 @@ class Species(object):
         self.fitness = None
         self.adjusted_fitness = None
         self.fitness_history = []
+        self.fitness_weight = None
 
     def update(self, representative, members):
         self.representative = representative
@@ -60,7 +61,8 @@ class DefaultSpeciesSet(DefaultClassConfig):
     @classmethod
     def parse_config(cls, param_dict):
         return DefaultClassConfig(param_dict,
-                                  [ConfigParameter('compatibility_threshold', float)])
+                                  [ConfigParameter('compatibility_threshold', float),
+                                   ConfigParameter('compatibility_fwthreshold',float,-1.0)])
 
     def speciate(self, config, population, generation):
         """
@@ -75,6 +77,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
         assert isinstance(population, dict)
 
         compatibility_threshold = self.species_set_config.compatibility_threshold
+        compatibility_fwthreshold = self.species_set_config.compatibility_fwthreshold
 
         # Find the best representatives for each existing species.
         unspeciated = set(iterkeys(population))
@@ -93,6 +96,11 @@ class DefaultSpeciesSet(DefaultClassConfig):
             new_rid = new_rep.key
             new_representatives[sid] = new_rid
             new_members[sid] = [new_rid]
+            if(compatibility_fwthreshold>0):
+                s.fitness_weight=new_rep.fitness.copy()
+                mx = max(s.fitness_weight)
+                for idx in range(len(s.fitness_weight)):
+                    s.fitness_weight[idx]/=mx
             unspeciated.remove(new_rid)
 
         # Partition population into species based on genetic similarity.
@@ -105,14 +113,35 @@ class DefaultSpeciesSet(DefaultClassConfig):
             for sid, rid in iteritems(new_representatives):
                 rep = population[rid]
                 d = distances(rep, g)
-                if(d<7.0):
-                    print("species sid:{0}, rid:{1},distance with g:{2}".format(sid,rid,d))
+                #if(d<7.0):
+                #    print("species sid:{0}, rid:{1},distance with g:{2}".format(sid,rid,d))
                 if d < compatibility_threshold:
                     candidates.append((d, sid))
 
             if candidates:
-                ignored_sdist, sid = min(candidates, key=lambda x: x[0])
-                new_members[sid].append(gid)
+                if(compatibility_fwthreshold<0):
+                    ignored_sdist, sid = min(candidates, key=lambda x: x[0])
+                    new_members[sid].append(gid)
+                else:
+                    candidates.sort(key=lambda x: x[0])
+                    append_newmember=False
+                    for ignored_sdist, sid in candidates:
+                        candspecies = self.species[sid]
+                        speciesfw = candspecies.fitness_weight
+                        gfw=g.fitness.copy()
+                        mx = max(gfw)
+                        fwdistance = 0.0
+                        for idx in range(len(gfw)):
+                            gfw[idx]/=mx
+                            fwdistance+=abs(gfw[idx]-speciesfw[idx])
+                        if(fwdistance< compatibility_fwthreshold):
+                            new_members[sid].append(gid)
+                            append_newmember=True
+                            break
+                    if(append_newmember==False):
+                        ignored_sdist, sid = min(candidates, key=lambda x: x[0])
+                        new_members[sid].append(gid)
+
             else:
                 # No species is similar enough, create a new species, using
                 # this genome as its representative.

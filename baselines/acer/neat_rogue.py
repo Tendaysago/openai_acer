@@ -41,6 +41,7 @@ class RoomInfo:
         self.knowndoorlist = knowndoorlist
         self.stairexisted = stairexisted
         self.stairsRoomdis = stairsRoomdis
+        self.itemList = []
 
 class DoorInfo:
     def __init__(self,id,Y,X,visited,passagelist,useless):
@@ -83,6 +84,18 @@ def RoomObjectSearch(screen, leftup,rightbottom,obj):
                 if(screen[y][x].isupper()):
                     ret+=1
     return ret
+
+def PickupSearch(nowRoomID):
+    room = RoomInfoList[nowRoomID]
+    leftup = room.leftup
+    rightbottom = rool.rightbottom
+    screen = RB.get_screen()
+    room.itemList=[]
+    for y in range(leftup[0],rightbottom[0]):
+        for x in range(leftup[1], rightbottom[1]):
+            if(screen[y][x]=='!' or screen[y][x]=='?' or screen[y][x]=='/' \
+                or screen[y][x]==')' or screen[y][x]=='*' or screen[y][x]==':'):
+                room.itemList.append((y,x,screen[y][x]))
 
 def CheckFoodnum():
     global Foodidx
@@ -227,12 +240,7 @@ def RightMethod(playery,playerx):
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
     if(FrameInfo.get_player_pos() ==  None):
-        print("Warning! player_pos type is NoneType!")
-        print(len(screen),len(screen[0]))
-        Screenprint(screen)
-        RB.send_command('i')
-        screen=RB.get_screen()
-        Screenprint(screen)
+        screen_refresh()
     PlayerY,PlayerX = playery, playerx
     #PlayerY+=1
     stackcheck=0
@@ -285,6 +293,7 @@ def RightMethod(playery,playerx):
             print("Warning! player_pos type is NoneType!")
             print(len(screen),len(screen[0]))
             Screenprint(screen)
+            screen_refresh()
         PlayerY,PlayerX = FrameInfo.get_player_pos()
         PlayerY+=1
         #進める限り右手法で進もうとする。
@@ -304,6 +313,7 @@ def RightMethod(playery,playerx):
             print("Warning! player_pos type is NoneType!")
             print(len(screen),len(screen[0]))
             Screenprint(screen)
+            screen_refresh()
         AfterY,AfterX = FrameInfo.get_player_pos() 
         AfterY+=1
         if(AfterY!=BeforeY or AfterX!=BeforeX):
@@ -321,6 +331,7 @@ def RightMethod(playery,playerx):
                 print("Warning! player_pos type is NoneType!")
                 print(len(screen),len(screen[0]))
                 Screenprint(screen)
+                screen_refresh()
             AfterY,AfterX = FrameInfo.get_player_pos()
             AfterY+=1
             FrameInfo = RBParser.parse_screen(screen)
@@ -504,7 +515,7 @@ def NotvisitedDoorCheck(nowRoomID):
             break
     return goDoorid,DoorX,DoorY
 
-def GotoStairs(nowRoomID,StairsY,StairsX):
+def GotoObject(nowRoomID,aimY,aimX,object):
     global GlobalStackCheck
     screen = RB.get_screen()
     if(RoomInfoList[nowRoomID].stairexisted==False):
@@ -512,25 +523,57 @@ def GotoStairs(nowRoomID,StairsY,StairsX):
     #階段のところまで地道にいき、階段にたどり着いたら階段を降りる。
     stackcheck=0
     stack=False
-    StairsY+=1
+    aimY+=1
     PlayerY = -1
     PlayerX = -1
     while(True):
         if(len(RB.player_pos)>0):
             PlayerY = RB.player_pos[0]+1
             PlayerX = RB.player_pos[1]
-        if(PlayerY != StairsY or PlayerX != StairsX):
+        else:
+            screen_refresh()
+            PlayerY = RB.player_pos[0]+1
+            PlayerX = RB.player_pos[1]
+        if(PlayerY != aimY or PlayerX != aimX):
             stackcheck+=1
-            if(PlayerX<StairsX and screen[PlayerY][PlayerX+1]!='|'):
+            if(PlayerX<aimX and PlayerY<aimY and \
+                screen[PlayerY+1][PlayerX+1]!='|' and screen[PlayerY+1][PlayerX+1]!='-'):
+                RB.send_command('m')
+                RB.send_command('n')
+                PlayerX+=1
+                PlayerY+=1
+            elif(PlayerX>aimX and PlayerY<aimY and \
+                screen[PlayerY+1][PlayerX-1]!='|' and screen[PlayerY+1][PlayerX-1]!='-'):
+                RB.send_command('m')
+                RB.send_command('b')
+                PlayerX-=1
+                PlayerY+=1
+            elif(PlayerX<aimX and PlayerY>aimY and \
+                screen[PlayerY-1][PlayerX+1]!='|' and screen[PlayerY-1][PlayerX+1]!='-'):
+                RB.send_command('m')
+                RB.send_command('u')
+                PlayerX+=1
+                PlayerY-=1
+            elif(PlayerX<aimX and PlayerY<aimY and \
+                screen[PlayerY-1][PlayerX-1]!='|' and screen[PlayerY-1][PlayerX-1]!='-'):
+                RB.send_command('m')
+                RB.send_command('y')
+                PlayerX-=1
+                PlayerY-=1
+            elif(PlayerX<aimX and screen[PlayerY][PlayerX+1]!='|'):
+                RB.send_command('m')
                 RB.send_command('l')
                 PlayerX+=1
-            elif(PlayerX>StairsX and screen[PlayerY][PlayerX-1]!='|'):
+            elif(PlayerX>aimX and screen[PlayerY][PlayerX-1]!='|'):
+                RB.send_command('m')
                 RB.send_command('h')
                 PlayerX-=1
-            elif(PlayerY<StairsY and screen[PlayerY+1][PlayerX]!='-'):
+            elif(PlayerY<aimY and screen[PlayerY+1][PlayerX]!='-'):
+                RB.send_command('m')
                 RB.send_command('j')
                 PlayerY+=1
-            elif(PlayerY>StairsY and screen[PlayerY-1][PlayerX]!='-'):
+            elif(PlayerY>aimY and screen[PlayerY-1][PlayerX]!='-'):
+                RB.send_command('m')
                 RB.send_command('k')
                 PlayerY-=1
             if(stackcheck>=100 and stack==False):
@@ -541,7 +584,7 @@ def GotoStairs(nowRoomID,StairsY,StairsX):
                 print("DoorList")
                 print("NowRoomID: {0}".format(nowRoomID))
                 print("Now Player:({0},{1})".format(RB.player_pos[0],RB.player_pos[1]))
-                print("Stairs:({0},{1})".format(StairsY,StairsX))
+                print("Stairs:({0},{1})".format(aimY,aimX))
                 for ridx in range(len(RoomInfoList)):
                     if(VisitedRoom[ridx]):
                         print("RoomID: {0}".format(ridx))
@@ -567,7 +610,10 @@ def GotoStairs(nowRoomID,StairsY,StairsX):
         screen=RB.get_screen()
         Screenprint(screen)
         return False
-    RB.send_command('>')
+    if(object=='%'):
+        RB.send_command('>')
+    else:
+        RB.send_command(',')
     return True
     
 
@@ -586,20 +632,53 @@ def GotoDoor(nowRoomID,goDoorid,DoorY,DoorX):
         if(len(RB.player_pos)>0):
             PlayerY = RB.player_pos[0]+1
             PlayerX = RB.player_pos[1]
+        else:
+            screen_refresh()
+            PlayerY = RB.player_pos[0]+1
+            PlayerX = RB.player_pos[1]
+        print("Player(Y,X):({0},{1})".format(PlayerY,PlayerX))
         if(PlayerY != DoorY or PlayerX != DoorX):
             if(RB.game_over()==True):
                 break
             stackcheck+=1
-            if(PlayerX<DoorX and screen[PlayerY][PlayerX+1]!='|'):
+            if(PlayerX<DoorX and PlayerY<DoorY and \
+                screen[PlayerY+1][PlayerX+1]!='|' and screen[PlayerY+1][PlayerX+1]!='-'):
+                RB.send_command('m')
+                RB.send_command('n')
+                PlayerX+=1
+                PlayerY+=1
+            elif(PlayerX>DoorX and PlayerY<DoorY and \
+                screen[PlayerY+1][PlayerX-1]!='|' and screen[PlayerY+1][PlayerX-1]!='-'):
+                RB.send_command('m')
+                RB.send_command('b')
+                PlayerX-=1
+                PlayerY+=1
+            elif(PlayerX<DoorX and PlayerY>DoorY and \
+                screen[PlayerY-1][PlayerX+1]!='|' and screen[PlayerY-1][PlayerX+1]!='-'):
+                RB.send_command('m')
+                RB.send_command('u')
+                PlayerX+=1
+                PlayerY-=1
+            elif(PlayerX<DoorX and PlayerY<DoorY and \
+                screen[PlayerY-1][PlayerX-1]!='|' and screen[PlayerY-1][PlayerX-1]!='-'):
+                RB.send_command('m')
+                RB.send_command('y')
+                PlayerX-=1
+                PlayerY-=1
+            elif(PlayerX<DoorX and screen[PlayerY][PlayerX+1]!='|'):
+                RB.send_command('m')
                 RB.send_command('l')
                 PlayerX+=1
             elif(PlayerX>DoorX and screen[PlayerY][PlayerX-1]!='|'):
+                RB.send_command('m')
                 RB.send_command('h')
                 PlayerX-=1
             elif(PlayerY<DoorY and screen[PlayerY+1][PlayerX]!='-'):
+                RB.send_command('m')
                 RB.send_command('j')
                 PlayerY+=1
             elif(PlayerY>DoorY and screen[PlayerY-1][PlayerX]!='-'):
+                RB.send_command('m')
                 RB.send_command('k')
                 PlayerY-=1
             if(RB.game_over()==True):
@@ -629,15 +708,17 @@ def GotoDoor(nowRoomID,goDoorid,DoorY,DoorX):
         else:
             break
     if(len(RB.player_pos)<1):
-        screen=RB.get_screen()
-        Screenprint(screen)
-        RB.send_command('i')
-        sleep(RB.busy_wait_seconds*400)
-        screen=RB.get_screen()
-        Screenprint(screen)
-        print("Player(Y,X):({0},{1})".format(PlayerY,PlayerX))
+        screen_refresh()
 
     return PlayerY,PlayerX
+
+def screen_refresh():
+    screen=RB.get_screen()
+    Screenprint(screen)
+    RB.send_command('i')
+    sleep(RB.busy_wait_seconds*400)
+    screen=RB.get_screen()
+    Screenprint(screen)
 
 #通ったことのある通路の情報に従って別の部屋に移動する。
 def move(passage):
@@ -882,7 +963,7 @@ def GotoStairsAct(nowRoomID,screen):
         FrameInfo = RBParser.parse_screen(screen)
         StairsCoord=FrameInfo.get_list_of_positions_by_tile('%')
         (StairsY,StairsX)=StairsCoord[0]
-        GotoStairs(nowRoomID,StairsY,StairsX)
+        GotoObject(nowRoomID,StairsY,StairsX,'%')
         return True
     else:
         return False
@@ -932,10 +1013,7 @@ def FightAct(screen,nowRoomID):
             if(screen[Playery+dy[k]][Playerx+dx[k]].isupper()):
                 CloseFight(k)
                 screen = RB.get_screen()
-                Screenprint(screen)
-                if('defeated' in screen[0]):
-                    Enemynum-=1
-        
+                Screenprint(screen)        
         Enemynum=RoomObjectSearch(screen,RoomInfoList[nowRoomID].leftp,RoomInfoList[nowRoomID].rightbottom,'monster')
         if(Enemynum==0):
             break
@@ -964,6 +1042,14 @@ def ExploreAct(nowRoomID):
     else:
         return False
 
+def PickupAct(nowRoomID):
+    PickupSearch(nowRoomID)
+    if(not RoomInfoList[nowRoomID].itemList):
+        return False
+    itemy,itemx,obj = RoomInfoList[nowRoomID].itemList[0]
+    GotoObject(nowRoomID,itemy,itemx,obj)
+    return True
+
 def ActMethod(action,nowRoomID):
     global ExtraExplore
     if(action<4):
@@ -987,3 +1073,6 @@ def ActMethod(action,nowRoomID):
     elif(action==7):
         #print("GotoStairsRoom!")
         return GotoStairsRoomAct(nowRoomID),False
+    elif(action==8):
+        #print("Pickup item!")
+        return PickupAct(nowRoomID),False
