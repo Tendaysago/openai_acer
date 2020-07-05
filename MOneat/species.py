@@ -96,6 +96,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
             new_rid = new_rep.key
             new_representatives[sid] = new_rid
             new_members[sid] = [new_rid]
+            #print(new_rep)
             if(compatibility_fwthreshold>0):
                 s.fitness_weight=new_rep.fitness.copy()
                 mx = max(s.fitness_weight)
@@ -119,13 +120,15 @@ class DefaultSpeciesSet(DefaultClassConfig):
                     candidates.append((d, sid))
 
             if candidates:
-                if(compatibility_fwthreshold<0):
+                if(compatibility_fwthreshold<0 or generation==0):
                     ignored_sdist, sid = min(candidates, key=lambda x: x[0])
                     new_members[sid].append(gid)
                 else:
                     candidates.sort(key=lambda x: x[0])
                     append_newmember=False
+                    #print(candidates)
                     for ignored_sdist, sid in candidates:
+                        #print(ignored_sdist, sid)
                         candspecies = self.species[sid]
                         speciesfw = candspecies.fitness_weight
                         gfw=g.fitness.copy()
