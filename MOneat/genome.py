@@ -173,6 +173,7 @@ class DefaultGenome(object):
         self.fitness = None
         #self.fitness = []
         self.crowding_dist = None
+        self.priority_fitness = None
 
     def dominates(self, other, obj=slice(None)):
         """Return true if each objective of *self* is not strictly worse than

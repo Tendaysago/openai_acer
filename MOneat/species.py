@@ -16,6 +16,8 @@ class Species(object):
         self.adjusted_fitness = None
         self.fitness_history = []
         self.fitness_weight = None
+        self.priority_fitness = None
+        self.priority_fitness_history = []
 
     def update(self, representative, members):
         self.representative = representative
@@ -24,6 +26,8 @@ class Species(object):
     def get_fitnesses(self):
         return [m.fitness for m in itervalues(self.members)]
 
+    def get_priority_fitnesses(self):
+        return [m.priority_fitness for m in itervalues(self.members)]
 
 class GenomeDistanceCache(object):
     def __init__(self, config):

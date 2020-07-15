@@ -1,20 +1,29 @@
+#    This file is part of MOneat.
+#
+#    This graph plot implementation is based from here :
+#    https://github.com/CodeReclaimers/neat-python/blob/master/examples/single-pole-balancing/visualize.py
+#    Copyright (C) 2018 {Alan McIntyre and Matt Kallada and Cesar G. Miguel and Carolina Feher da Silva}
+
 from __future__ import print_function
 
 import copy
 import warnings
 
 import graphviz
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 
+colors=["red","blue","yellow","green","purple","gray","salmon","aqua",\
+    "orange","lime","plum","black"]
 
 def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
     """ Plots the population's average and best fitness. """
     if plt is None:
         warnings.warn("This display is not available due to a missing optional dependency (matplotlib)")
         return
-
-    plt.ioff()
 
     generation = range(len(statistics.most_fit_genomes))
     best_fitness = [c.fitness for c in statistics.most_fit_genomes]
@@ -39,6 +48,52 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
         plt.show()
 
     plt.close()
+
+def plot_stats3D(statistics, ylog=False, view=False, filename='paretofront_fitness.svg'):
+    """ Plots the population's species pareto front. """
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    ax.set_xlabel("(20-Explorenum)/20")
+    ax.set_ylabel("(Defeat Enemy num)/10")
+    ax.set_zlabel("(Pick item num)/6.0")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_zlim(0, 1)
+    generation = len(statistics.most_fit_genomes)
+    #paretofront_fitness = [c.fitness for c in statistics.most_fit_genomes]
+    paretofront_fitness = statistics.species_now_all_fitness
+    #print(paretofront_fitness)
+    #print(len(paretofront_fitness[0]))
+    #print(len(paretofront_fitness[0][0]))
+    #print(len(paretofront_fitness[0][0][1]))
+    #assert(len(paretofront_fitness[0][0][1])==3)
+    speciesnum=0
+    for sidx in range(len(paretofront_fitness[0])):
+        if(len(colors)<=speciesnum):
+            break
+        if(len(paretofront_fitness[0][sidx])==0):
+            continue
+        print(paretofront_fitness[0][sidx])
+        X = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        Y = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        Z = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        fidx=0
+        for fitness in paretofront_fitness[0][sidx].values():
+            X[fidx]=fitness[0]
+            Y[fidx]=fitness[1]
+            Z[fidx]=fitness[2]
+            fidx+=1
+        print(X)
+        print(Y)
+        print(Z)
+        ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="species "+str(speciesnum+1))
+        speciesnum+=1
+    ax.legend(loc=2, title='species', shadow=True)
+    plt.title("Generation " + str(generation) + " paretofront_fitnesses")
+    filename="paretofront_fitness_gen_"+str(generation)+".png"
+    plt.savefig(filename)
+    plt.close()
+
 
 
 def plot_spikes(spikes, view=False, filename=None, title=None):

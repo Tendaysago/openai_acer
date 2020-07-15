@@ -850,6 +850,7 @@ def eval_single_genome(genome, genome_config):
 
 def RogueTrying(net):
     fitness=[0.0,0.0,0.0]
+    priority_fitness = 0.0
     global RightActnum
     global ExploreActnum
     global PrevAct
@@ -906,7 +907,7 @@ def RogueTrying(net):
             """
             if(RB.game_over()==True):
                 #print("Game Over.")
-                fitness = [ x + y for (x, y) in zip(fitness,[-50,-50,0]) ]
+                fitness = [ x + y for (x, y) in zip(fitness,[-1.0,ExtraExplore/10.0,Getitemnum/6.0]) ]
                 break
             Safe,Stairdown = ActMethod(action,nowRoomID)
             if(GlobalStackCheck==True):
@@ -918,7 +919,7 @@ def RogueTrying(net):
             #明示的に一本道であると確定するには,get_tile_count('#')で探索前後における#の数を数える。
             if(RB.game_over()==True):
                 #print("Game Over.")
-                fitness = [ x + y for (x, y) in zip(fitness,[-1.0,-1.0,-1.0]) ]
+                fitness = [ x + y for (x, y) in zip(fitness,[0.0,ExtraExplore/10.0,Getitemnum/6.0]) ]
                 break
             screen = RB.get_screen()
             FrameInfo=RBParser.parse_screen(screen)
@@ -927,8 +928,6 @@ def RogueTrying(net):
             Playery,Playerx = FrameInfo.get_player_pos()
             Playery+=1
             if(Safe==False):
-                #print("Bad Action!")
-                #fitness = [ x + y for (x, y) in zip(fitness,[-50,-50,0]) ]
                 done=True
             else:
                 RightActnum+=1
@@ -936,6 +935,7 @@ def RogueTrying(net):
                     ExploreActnum+=1
             if(Safe==True and Stairdown==True):
                 fitness = [ x + y for (x, y) in zip(fitness,[(20.0-ExploreActnum)/20.0,ExtraExplore/10.0,Getitemnum/6.0]) ]
+                priority_fitness+=1.0
                 #print("Get down stairs! Add Fitness: {0}".format([(20.0-ExploreActnum)/20.0,ExtraExplore/10.0,Getitemnum/6.0]))
                 Initialize()
                 t=0
@@ -961,7 +961,7 @@ def RogueTrying(net):
 
                     #fitness = [30-ExtraExplore,ExtraExplore,RightActnum]
                 if(t==20 or Safe==False):
-                    fitness = [ x + y for (x, y) in zip(fitness,[-1.0,-1.0,-1.0]) ]
+                    fitness = [ x + y for (x, y) in zip(fitness,[0.0,ExtraExplore/10.0,Getitemnum/6.0]) ]
                     #fitness = [-50,-50,RightActnum]
                 #print(fitness)
                 break
@@ -969,7 +969,8 @@ def RogueTrying(net):
     #print("<-- Episode finished after average {} time-steps with reward {}".format(t + 1//5, total_reward / run_neat_base.n))
     #print("Fin")
     fitness = [ x / y for (x, y) in zip(fitness, [run_neat_base.n,run_neat_base.n,run_neat_base.n])]
-    return fitness
+    priority_fitness /= run_neat_base.n
+    return fitness,priority_fitness
 
 def Initialize():
     global RB
@@ -1026,6 +1027,8 @@ def GotoKnownRoomAct(nowRoomID,GoDoorID):
         return False
     elif(not RoomInfoList[nowRoomID].doorlist[GoDoorID].visited):
         #print("Door ID:GoDoorID didn't visit!")
+        return False
+    elif(RoomInfoList[nowRoomID].doorlist[GoDoorID].useless):
         return False
     GoDoorX = RoomInfoList[nowRoomID].doorlist[GoDoorID].X
     GoDoorY = RoomInfoList[nowRoomID].doorlist[GoDoorID].Y

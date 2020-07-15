@@ -108,19 +108,26 @@ class StdOutReporter(BaseReporter):
             print('Population of {0:d} members in {1:d} species:'.format(ng, ns))
             sids = list(iterkeys(species_set.species))
             sids.sort()
-            print("   ID   age  size  fitness  adj fit  stag")
-            print("  ====  ===  ====  =======  =======  ====")
+            print("   ID   age  size       fitness      priority_fitness    adj fit       stag")
+            print("  ====  ===  ====  =================      =======     ===============  ====")
             for sid in sids:
                 s = species_set.species[sid]
                 a = self.generation - s.created
                 n = len(s.members)
                 #f = "--" if s.fitness is None else "{:.1f}".format(s.fitness)
+                f = None
+                af = None
+                if s.fitness:
+                    f = [round(s.fitness[i], 4) for i in range(len(s.fitness))] 
                 f = "--" if s.fitness is None else "{0}".format(s.fitness)
                 #af = "--" if s.adjusted_fitness is None else "{:.3f}".format(s.adjusted_fitness)
+                if s.adjusted_fitness:
+                    af = [round(s.adjusted_fitness[i], 4) for i in range(len(s.adjusted_fitness))] 
                 af = "--" if s.adjusted_fitness is None else "{0}".format(s.adjusted_fitness)
+                pf = "--" if s.priority_fitness is None else "{: >4}".format(s.priority_fitness)
                 st = self.generation - s.last_improved
                 print(
-                    "  {: >4}  {: >3}  {: >4}  {: >7}  {: >7}  {: >4}".format(sid, a, n, f, af, st))
+                    "  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, pf, af, st))
         else:
             print('Population of {0:d} members in {1:d} species'.format(ng, ns))
 
@@ -143,7 +150,7 @@ class StdOutReporter(BaseReporter):
         if(type(fitnesses[0]) is float):
             fit_mean = mean(fitnesses)
             fit_std = stdev(fitnesses)
-            print('Population\'s average fitness: {0:3.5f} stdev: {1:3.5f}'.format(fit_mean, fit_std))
+            print('Population\'s average fitness: {0:3.3f} stdev: {1:3.3f}'.format(fit_mean, fit_std))
         elif(type(fitnesses[0]) is list):
             fit_mean = momean(fitnesses,len(fitnesses[0]))
             fit_std = mostdev(fitnesses,len(fitnesses[0]))

@@ -8,8 +8,7 @@ import csv
 from MOneat.math_util import mean, stdev, median2
 from MOneat.reporting import BaseReporter
 from MOneat.six_util import iteritems
-
-
+from . import visualize
 # TODO: Make a version of this reporter that doesn't continually increase memory usage.
 # (Maybe periodically write blocks of history to disk, or log stats in a database?)
 
@@ -23,6 +22,12 @@ class StatisticsReporter(BaseReporter):
         self.most_fit_genomes = []
         self.generation_statistics = []
         #self.generation_cross_validation_statistics = []
+        self.species_now_all_fitness = []
+
+    def end_generation(self, config, population, species_set):
+        if(config.pareto_plot_interval>0 and \
+            len(self.most_fit_genomes)%config.pareto_plot_interval==0):
+            visualize.plot_stats3D(self)
 
     def post_evaluate(self, config, population, species, best_genome):
         self.most_fit_genomes.append(copy.deepcopy(best_genome))
@@ -36,6 +41,7 @@ class StatisticsReporter(BaseReporter):
 ##                                                       k, v in iteritems(s.members))
         self.generation_statistics.append(species_stats)
         #self.generation_cross_validation_statistics.append(species_cross_validation_stats)
+        self.get_species_now_all_fitness()
 
     def get_fitness_stat(self, f):
         stat = []
@@ -166,5 +172,35 @@ class StatisticsReporter(BaseReporter):
             species_fitness.append(fitness)
 
         return species_fitness
+
+    def get_species_now_all_fitness(self, null_value=''):
+        self.species_now_all_fitness = []
+        now_all_species = set()
+        now_all_species = now_all_species.union(self.generation_statistics[-1].keys())
+        # for gen_data in self.generation_statistics:
+        #     all_species = all_species.union(gen_data.keys())
+
+        max_species = max(now_all_species)
+        species_fitness = []
+        last_gen_data = self.generation_statistics[-1]
+        # for gen_data in self.generation_statistics:
+        #     member_fitness = [gen_data.get(sid, []) for sid in range(1, max_species + 1)]
+        #     fitness = []
+        #     for mf in member_fitness:
+        #         if mf:
+        #             fitness.append(mf)
+        #         else:
+        #             fitness.append(null_value)
+        #     species_fitness.append(fitness)
+        member_fitness = [last_gen_data.get(sid, []) for sid in range(1, max_species + 1)]
+        fitness = []
+        for mf in member_fitness:
+            if mf:
+                fitness.append(mf)
+            else:
+                fitness.append(null_value)
+        species_fitness.append(fitness)
+        self.species_now_all_fitness = species_fitness
+        return self.species_now_all_fitness
 
 
