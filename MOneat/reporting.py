@@ -6,6 +6,7 @@ may do something else such as checkpointing, or may do both.
 from __future__ import division, print_function
 
 import time
+import datetime
 from math import sqrt
 from MOneat.math_util import mean, stdev, momean, mostdev
 from MOneat.six_util import itervalues, iterkeys
@@ -95,10 +96,12 @@ class StdOutReporter(BaseReporter):
         self.generation_start_time = None
         self.generation_times = []
         self.num_extinctions = 0
+        self.filename = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S.txt')
 
     def start_generation(self, generation):
         self.generation = generation
         print('\n ****** Running generation {0} ****** \n'.format(generation))
+        self.filewrite('\n ****** Running generation {0} ****** \n'.format(generation))
         self.generation_start_time = time.time()
 
     def end_generation(self, config, population, species_set):
@@ -106,10 +109,13 @@ class StdOutReporter(BaseReporter):
         ns = len(species_set.species)
         if self.show_species_detail:
             print('Population of {0:d} members in {1:d} species:'.format(ng, ns))
+            self.filewrite('Population of {0:d} members in {1:d} species:'.format(ng, ns))
             sids = list(iterkeys(species_set.species))
             sids.sort()
             print("   ID   age  size       fitness      priority_fitness    adj fit       stag")
             print("  ====  ===  ====  =================      =======     ===============  ====")
+            self.filewrite("   ID   age  size       fitness      priority_fitness    adj fit       stag")
+            self.filewrite("  ====  ===  ====  =================      =======     ===============  ====")
             for sid in sids:
                 s = species_set.species[sid]
                 a = self.generation - s.created
@@ -119,17 +125,25 @@ class StdOutReporter(BaseReporter):
                 af = None
                 if s.fitness:
                     f = [round(s.fitness[i], 4) for i in range(len(s.fitness))] 
-                f = "--" if s.fitness is None else "{0}".format(s.fitness)
+                    f = "{0}".format(f)
+                #f = "--" if s.fitness is None else "{0}".format(s.fitness)
+                else:
+                    f = "--"
                 #af = "--" if s.adjusted_fitness is None else "{:.3f}".format(s.adjusted_fitness)
                 if s.adjusted_fitness:
                     af = [round(s.adjusted_fitness[i], 4) for i in range(len(s.adjusted_fitness))] 
-                af = "--" if s.adjusted_fitness is None else "{0}".format(s.adjusted_fitness)
-                pf = "--" if s.priority_fitness is None else "{: >4}".format(s.priority_fitness)
+                    af = "{0}".format(af)
+                #af = "--" if s.adjusted_fitness is None else "{0}".format(s.adjusted_fitness)
+                else:
+                    af = "--"
+                pf = "--" if s.priority_fitness is None else "{:.4f}".format(s.priority_fitness)
                 st = self.generation - s.last_improved
                 print(
                     "  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, pf, af, st))
+                self.filewrite("  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, pf, af, st))
         else:
             print('Population of {0:d} members in {1:d} species'.format(ng, ns))
+            self.filewrite('Population of {0:d} members in {1:d} species'.format(ng, ns))
 
         elapsed = time.time() - self.generation_start_time
         self.generation_times.append(elapsed)
@@ -138,8 +152,10 @@ class StdOutReporter(BaseReporter):
         print('Total extinctions: {0:d}'.format(self.num_extinctions))
         if len(self.generation_times) > 1:
             print("Generation time: {0:.3f} sec ({1:.3f} average)".format(elapsed, average))
+            self.filewrite("Generation time: {0:.3f} sec ({1:.3f} average)".format(elapsed, average))
         else:
             print("Generation time: {0:.3f} sec".format(elapsed))
+            self.filewrite("Generation time: {0:.3f} sec".format(elapsed))
 
     def post_evaluate(self, config, population, species, best_genome):
         # pylint: disable=no-self-use
@@ -151,14 +167,21 @@ class StdOutReporter(BaseReporter):
             fit_mean = mean(fitnesses)
             fit_std = stdev(fitnesses)
             print('Population\'s average fitness: {0:3.3f} stdev: {1:3.3f}'.format(fit_mean, fit_std))
+            self.filewrite('Population\'s average fitness: {0:3.3f} stdev: {1:3.3f}'.format(fit_mean, fit_std))
         elif(type(fitnesses[0]) is list):
             fit_mean = momean(fitnesses,len(fitnesses[0]))
             fit_std = mostdev(fitnesses,len(fitnesses[0]))
             #fit_std = sqrt(sum((v - fit_mean) ** 2 for v in fitnesses) / len(fitnesses))
             print('Population\'s average fitness: {0} stdev: {1}'.format(fit_mean, fit_std))
+            self.filewrite('Population\'s average fitness: {0} stdev: {1}'.format(fit_mean, fit_std))
 
         best_species_id = species.get_species_id(best_genome.key)
         print(
+            'Best fitness: {0} - size: {1!r} - species {2} - id {3}'.format(best_genome.fitness,
+                                                                                 best_genome.size(),
+                                                                                 best_species_id,
+                                                                                 best_genome.key))
+        self.filewrite(
             'Best fitness: {0} - size: {1!r} - species {2} - id {3}'.format(best_genome.fitness,
                                                                                  best_genome.size(),
                                                                                  best_species_id,
@@ -167,6 +190,7 @@ class StdOutReporter(BaseReporter):
     def complete_extinction(self):
         self.num_extinctions += 1
         print('All species extinct.')
+        self.filewrite('All species extinct.')
 
     def found_solution(self, config, generation, best):
         print('\nBest individual in generation {0} meets fitness threshold - complexity: {1!r}'.format(
@@ -175,6 +199,11 @@ class StdOutReporter(BaseReporter):
     def species_stagnant(self, sid, species):
         if self.show_species_detail:
             print("\nSpecies {0} with {1} members is stagnated: removing it".format(sid, len(species.members)))
+            self.filewrite("\nSpecies {0} with {1} members is stagnated: removing it".format(sid, len(species.members)))
 
     def info(self, msg):
         print(msg)
+
+    def filewrite(self,contents):
+        with open(self.filename, mode='a') as f:
+            f.write(contents+'\n')

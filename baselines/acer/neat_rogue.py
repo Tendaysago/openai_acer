@@ -89,16 +89,17 @@ def RoomObjectSearch(screen, leftup,rightbottom,obj):
     return ret
 
 def PickupSearch(nowRoomID):
-    room = RoomInfoList[nowRoomID]
-    leftup = room.leftup
-    rightbottom = room.rightbottom
+    global RoomInfoList
+    #room = RoomInfoList[nowRoomID]
+    leftup = RoomInfoList[nowRoomID].leftup
+    rightbottom = RoomInfoList[nowRoomID].rightbottom
     screen = RB.get_screen()
-    room.itemList=[]
+    RoomInfoList[nowRoomID].itemList=[]
     for y in range(leftup[0],rightbottom[0]):
         for x in range(leftup[1], rightbottom[1]):
             if(screen[y][x]=='!' or screen[y][x]=='?' or screen[y][x]=='/' \
                 or screen[y][x]==')' or screen[y][x]=='*' or screen[y][x]==':'):
-                room.itemList.append((y,x,screen[y][x]))
+                RoomInfoList[nowRoomID].itemList.append((y,x,screen[y][x]))
 
 def CheckFoodnum():
     global Foodidx
