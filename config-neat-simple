@@ -1,7 +1,7 @@
 [NEAT]
 fitness_criterion     = max
 fitness_threshold     = 50
-pop_size              = 300
+pop_size              = 200
 reset_on_extinction   = False
 no_fitness_termination= True
 pareto_plot_interval = 10
@@ -52,8 +52,8 @@ node_delete_prob         = 0.2
 
 # network parameters
 num_hidden              = 50
-num_inputs              = 23
-num_outputs             = 9
+num_inputs              = 7
+num_outputs             = 5
 
 # node response options
 response_init_mean      = 1.0
@@ -74,7 +74,7 @@ weight_mutate_rate      = 0.460
 weight_replace_rate     = 0.0245
 
 [DefaultSpeciesSet]
-compatibility_threshold = 2.0
+compatibility_threshold = 2.6
 #compatibility_threshold = 7.0
 compatibility_fwthreshold = -1.0
 [DefaultStagnation]
@@ -83,12 +83,13 @@ species_priority_fitness_func = mean
 max_stagnation       = 15
 
 [DefaultReproduction]
-elitism            = 2
-priority_elitism = 5
+elitism            = 0
+priority_elitism = 0
 survival_threshold = 0.5
-min_species_size = 10
-multi_optimization = NSGA2
+min_species_size = 20
+multi_optimization = RNSGA2
+multi_optimization_indicator = None
 dimension = 3
-nsga2threshold = 0.4
+nsga2threshold = 0.5
 nsga2nd = standard
-first_front_only = True
+first_front_only = False

@@ -14,10 +14,12 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import datetime
 from mpl_toolkits.mplot3d import Axes3D
 
 colors=["red","blue","yellow","green","purple","gray","salmon","aqua",\
     "orange","lime","plum","black"]
+timestamp = None
 
 def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
     """ Plots the population's average and best fitness. """
@@ -51,12 +53,15 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
 
 def plot_stats3D(statistics, ylog=False, view=False, filename='paretofront_fitness.svg'):
     """ Plots the population's species pareto front. """
+    global timestamp
+    if(timestamp==None):
+        timestamp = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
     fig = plt.figure()
     ax = Axes3D(fig)
     ax.set_xlabel("(20-Explorenum)/20")
     ax.set_ylabel("(Defeat Enemy num)/10")
     ax.set_zlabel("(Pick item num)/6.0")
-    ax.set_xlim(0, 1)
+    ax.set_xlim(-0.2, 1)
     ax.set_ylim(0, 1)
     ax.set_zlim(0, 1)
     generation = len(statistics.most_fit_genomes)
@@ -90,7 +95,7 @@ def plot_stats3D(statistics, ylog=False, view=False, filename='paretofront_fitne
         speciesnum+=1
     ax.legend(loc=2, title='species', shadow=True)
     plt.title("Generation " + str(generation) + " paretofront_fitnesses")
-    filename="paretofront_fitness_gen_"+str(generation)+".png"
+    filename= timestamp + "paretofront_fitness_gen_"+str(generation)+".png"
     plt.savefig(filename)
     plt.close()
 

@@ -11,7 +11,7 @@ import numpy as np
 from MOneat.parallel import ParallelEvaluator
 from rogueinabox_lib.frame_info import RogueFrameInfo
 
-n = 10
+n = 1
 
 test_n = 10
 TEST_MULTIPLIER = 1
@@ -52,13 +52,13 @@ def _eval_genomes(eval_single_genome, genomes, neat_config):
     for genome_id, genome in genomes:
         i+=1
         print(i)
-        genome.fitness = eval_single_genome(genome, config)
+        genome.fitness,genome.priority_fitness = eval_single_genome(genome, config)
 
 
 def _run_neat(checkpoint, eval_network, eval_single_genome):
     # Create the population, which is the top-level object for a NEAT run.
     global NUM_WORKERS
-    NUM_WORKERS = os.cpu_count()
+    #NUM_WORKERS = os.cpu_count()
     print_config_info()
 
     if checkpoint is not None:

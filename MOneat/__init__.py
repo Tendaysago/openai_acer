@@ -5,6 +5,7 @@ import MOneat.nn as nn
 import MOneat.ctrnn as ctrnn
 import MOneat.iznn as iznn
 import MOneat.distributed as distributed
+import MOneat.pyhv as hv
 
 from  MOneat.config import Config
 from  MOneat.population import Population, CompleteExtinctionException
@@ -18,3 +19,4 @@ from  MOneat.parallel import ParallelEvaluator
 from  MOneat.distributed import DistributedEvaluator, host_is_local
 from  MOneat.threaded import ThreadedEvaluator
 from  MOneat.checkpoint import Checkpointer
+

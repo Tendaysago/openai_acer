@@ -6,12 +6,22 @@ asexual reproduction from parents.
 #    implementations of NSGA2 are based from here :
 #    https://github.com/DEAP/deap/blob/master/deap/tools/emo.py
 #    Copyright (C) 2012 {Felix-Antoine Fortin and Francois-Michel De Rainville and Marc-Andre Gardner  and Marc Parizeau and Christian Gagne }
+
+#    implementations of HyperVolume indicator is based from here :
+#    Copyright (C) 2010 Simon Wessing
+#    https://github.com/DEAP/deap/blob/master/deap/tools/_hypervolume/pyhv.py
+#    https://github.com/DEAP/deap/blob/master/deap/examples/ga/mo_rhv.py
+
+#    implementations of connecting with RNSGA2 is based from here :
+#    
+#    
 from __future__ import division
 
 import math
 import numpy
 import random
 import bisect
+import MOneat.pyhv as hv
 from itertools import count,chain
 from collections import defaultdict, namedtuple
 from operator import attrgetter, itemgetter
@@ -38,6 +48,7 @@ class DefaultReproduction(DefaultClassConfig):
                                    ConfigParameter('survival_threshold', float, 0.2),
                                    ConfigParameter('min_species_size', int, 2),
                                    ConfigParameter('multi_optimization', str, 'None'),
+                                   ConfigParameter('multi_optimization_indicator', str, 'None'),
                                    ConfigParameter('dimension', int, 1),
                                    ConfigParameter('nsga2threshold',float,0.4),
                                    ConfigParameter('nsga2nd',str,'standard'),
@@ -210,9 +221,10 @@ class DefaultReproduction(DefaultClassConfig):
             assert spawn > 0
 
             # The species has at least one member for the next generation, so retain it.
-            #print(s.members)
+            # print(s.members)
             old_members = list(iteritems(s.members))
-            #print(old_members)
+            # print(old_members)
+            # print("--------")
             s.members = {}
             species.species[s.key] = s
 
@@ -222,7 +234,7 @@ class DefaultReproduction(DefaultClassConfig):
             # Use at least two parents no matter what the threshold fraction result is.
             repro_cutoff = max(repro_cutoff, 2)
 
-            if self.reproduction_config.multi_optimization=='None' or repro_cutoff<self.reproduction_config.nsga2threshold:
+            if self.reproduction_config.multi_optimization=='None':
                 # Sort members in order of descending fitness.
                 old_members.sort(reverse=True, key=lambda x: x[1].fitness)
 
@@ -239,16 +251,31 @@ class DefaultReproduction(DefaultClassConfig):
 
                 # Randomly choose parents and produce the number of offspring allotted to the species.
             
-            elif self.reproduction_config.multi_optimization=='NSGA2' and repro_cutoff>=self.reproduction_config.nsga2threshold:
+            elif self.reproduction_config.multi_optimization=='NSGA2':
                 old_members = selNSGA2(s.key,old_members, repro_cutoff, self.reproduction_config.nsga2nd,self.reproduction_config.first_front_only)
+                #print("old_members {0}".format(old_members))
+                if(self.reproduction_config.multi_optimization_indicator=='HV'):
+                    old_members, _ = sortNondominated(old_members, repro_cutoff,True)
+                    print(generation)
+                    if(len(old_members)>0 and generation!=0):
+                        hypervolume_map = list(hypervolume_contrib(old_members))
+                        for i in range(len(hypervolume_map)):
+                            old_members[1][i].hypervolume_contribution = hypervolume_map[i]
+                        old_members.sort(reverse=True, key=lambda x: x[1].hypervolume_contribution)
+
+
                 #print(old_members)
+            elif self.reproduction_config.multi_optimization=='RNSGA2':
+                epsilon = 0.01
+                old_members, s.ref_points = r_modifiedcrowding(3,repro_cutoff,old_members,s.ref_points,epsilon,True)
+
 
             if self.reproduction_config.elitism > 0 and self.reproduction_config.priority_elitism<=0:
-                    for i, m in old_members[:self.reproduction_config.elitism]:
-                        new_population[i] = m
-                        spawn -= 1
+                for i, m in old_members[:self.reproduction_config.elitism]:
+                    new_population[i] = m
+                    spawn -= 1
             
-            if self.reproduction_config.priority_elitism>0:
+            elif self.reproduction_config.priority_elitism>0:
                 old_members.sort(reverse=True, key=lambda x: x[1].priority_fitness)
                 for i, m in old_members[:self.reproduction_config.priority_elitism]:
                     new_population[i] = m
@@ -279,9 +306,9 @@ class DefaultReproduction(DefaultClassConfig):
 
 def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
     if nd == 'standard':
-        pareto_fronts = sortNondominated(individuals, k,first_front_only)
+        pareto_fronts, _ = sortNondominated(individuals, k,first_front_only)
     elif nd == 'log':
-        pareto_fronts = sortLogNondominated(individuals, k,first_front_only)
+        pareto_fronts, _ = sortLogNondominated(individuals, k,first_front_only)
     else:
         raise Exception('selNSGA2: The choice of non-dominated sorting '
                         'method "{0}" is invalid.'.format(nd))
@@ -291,8 +318,10 @@ def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
 
     #print(pareto_fronts)
     chosen = list(chain(*pareto_fronts[:-1]))
-    #print("chosen")
-    #print(chosen)
+    print(pareto_fronts)
+    # print("chosen")
+    # print(chosen)
+    # print("chosen")
     #chosen = list(iteritems(*pareto_fronts[:-1]))
     k = k- len(chosen)
     if k > 0:
@@ -300,8 +329,6 @@ def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
         sorted_front = sorted(pareto_fronts[-1], key=lambda x: x[1].crowding_dist, reverse=True)
         #reverse=True, key=lambda x: x[1].fitness
         chosen.extend(sorted_front[:k])
-
-    #print("last chosen: {0}".format(chosen))
     return chosen
 
 def identity(obj):
@@ -322,7 +349,7 @@ def isdominated(fitnesses1, fitnesses2):
         if self_fitnesses > other_fitnesses:
             return False
         elif self_fitnesses < other_fitnesses:
-            not_equal = False
+            not_equal = True
     return not_equal
 
 def isdominates(fitnesses1, fitnesses2):
@@ -355,38 +382,51 @@ def sortNondominated(individuals, k, first_front_only=False,reverse=False):
         #print(ind)
         map_fit_ind[tuple(ind[1].fitness)].append(ind)
     fits = list(map_fit_ind.keys())
+    for idx in range(len(fits)):
+        print(map_fit_ind[fits[idx]])
     current_front = []
     next_front = []
+    fronts= [[]]
+    current_front_indices= []
+    next_front_indices = []
+    fronts_indices = []
+    dominating_indices = [[] for _ in range(len(individuals))]
     dominating_fits = defaultdict(int)
     dominated_fits = defaultdict(list)
     #print("Fits: {0}".format(fits))
-    for i, fit_i in enumerate(fits):
+    # for i, fit_i in enumerate(fits):
+    #     #print("i, fit_i: {0}, {1}".format(i,fit_i))
+    #     #print("map_fit_ind[fit_i]: {0}".format(map_fit_ind[fit_i]))
+    #     for fit_j in fits[i+1:]:
+    #         if isdominates(fit_i,fit_j):
+    #             dominating_fits[fit_j] += 1
+    #             dominated_fits[fit_i].append(fit_j)
+    #         elif isdominates(fit_j,fit_i):
+    #             dominating_fits[fit_i] += 1
+    #             dominated_fits[fit_j].append(fit_i)
+    #     if dominating_fits[fit_i] == 0:
+    #         current_front.append(fit_i)
+    #         current_front_indices.append(i)
+    for fit_i in range(len(fits)):
         #print("i, fit_i: {0}, {1}".format(i,fit_i))
         #print("map_fit_ind[fit_i]: {0}".format(map_fit_ind[fit_i]))
-        for fit_j in fits[i+1:]:
-            if isdominates(fit_i,fit_j):
-                dominating_fits[fit_j] += 1
-                dominated_fits[fit_i].append(fit_j)
-            elif isdominates(fit_j,fit_i):
-                dominating_fits[fit_i] += 1
-                dominated_fits[fit_j].append(fit_i)
+        for fit_j in range(fit_i+1, len(fits)):
+            if isdominates(fits[fit_i],fits[fit_j]):
+                dominating_fits[fits[fit_j]] += 1
+                dominating_indices[fit_i].append(fit_j)
+                dominated_fits[fits[fit_i]].append(fits[fit_j])
+            elif isdominates(fits[fit_j],fits[fit_i]):
+                dominating_fits[fits[fit_i]] += 1
+                dominating_indices[fit_j].append(fit_i)
+                dominated_fits[fits[fit_j]].append(fits[fit_i])
         if dominating_fits[fit_i] == 0:
-            current_front.append(fit_i)
+            current_front.append(fits[fit_i])
+            current_front_indices.append(fit_i)
+            
 
-    fronts=None
-    if(first_front_only==False):
-        fronts = [[]]
-        for fit in current_front:
-            #print(fit)
-            fronts[-1].extend(map_fit_ind[fit])
-            #print(fronts)
-    else:
-        fronts = []
-        for fit in current_front:
-            #print(fit)
-            fronts.append(map_fit_ind[fit])
-            #print(fronts)
-    #print("Current_front: {0}".format(current_front))
+    #fronts=None
+    for fit in current_front:
+        fronts[-1].extend(map_fit_ind[fit])
     pareto_sorted = len(fronts[-1])
 
     if not first_front_only:
@@ -394,6 +434,7 @@ def sortNondominated(individuals, k, first_front_only=False,reverse=False):
         while pareto_sorted < N:
             fronts.append([])
             for fit_p in current_front:
+                print("Current_front: {0}".format(current_front))
                 for fit_d in dominated_fits[fit_p]:
                     dominating_fits[fit_d] -=1
                     if dominating_fits[fit_d] == 0:
@@ -402,8 +443,65 @@ def sortNondominated(individuals, k, first_front_only=False,reverse=False):
                         fronts[-1].extend(map_fit_ind[fit_d])
             current_front = next_front
             next_front = []
-
+    print("END")
     return fronts
+
+def sortNondominated2(individuals, k, first_front_only=False,reverse=False):
+    if k==0:
+        return []
+    fits = []
+    for ind in individuals:
+        fits.append(ind[1].fitness)
+    current_front = []
+    next_front = []
+    fronts= [[]]
+    current_front_indices= []
+    next_front_indices = []
+    fronts_indices = [[]]
+    dominating_indices = [[] for _ in range(len(individuals))]
+    n_dominated = numpy.zeros(len(individuals))
+    for i in range(len(fits)):
+        #print("i, fit_i: {0}, {1}".format(i,fit_i))
+        #print("map_fit_ind[fit_i]: {0}".format(map_fit_ind[fit_i]))
+        for j in range(i+1, len(fits)):
+            if isdominates(fits[i],fits[j]):
+                n_dominated[j] += 1
+                dominating_indices[i].append(j)
+            elif isdominates(fits[j],fits[i]):
+                n_dominated[i] +=1
+                dominating_indices[j].append(i)
+        if n_dominated[i] == 0:
+            current_front.append(fits[i])
+            current_front_indices.append(i)
+
+    #print(current_front_indices)
+            
+
+    for idx in current_front_indices:
+        fronts_indices[-1].append(idx)
+        fronts[-1].append(tuple(individuals[idx]))
+    #print(fronts_indices)
+    #print(fronts)
+    pareto_sorted = len(fronts[-1])
+
+    if not first_front_only:
+        N = min(len(individuals), k)
+        while pareto_sorted < N:
+            for i in current_front_indices:
+                for j in dominating_indices[i]:
+                    n_dominated[j] -=1
+                    if n_dominated[j] == 0:
+                        next_front_indices.append(j)
+                        next_front.append(tuple(individuals[j]))
+                        pareto_sorted += 1
+            fronts_indices.append(next_front_indices)
+            fronts.append(next_front)
+            current_front_indices = next_front_indices
+            current_front = next_front
+            next_front = []
+            next_front_indices = []
+    print("END")
+    return fronts,fronts_indices
 
 def sortLogNondominated(individuals, k, first_front_only=False):
     """Sort *individuals* in pareto non-dominated fronts using the Generalized
@@ -898,7 +996,7 @@ def selNSGA3(individuals, k, ref_points, nd="log", best_point=None,
         Evolutionary Computation, 18(4), 577-601. doi:10.1109/TEVC.2013.2281535.
     """    
     if nd == "standard":
-        pareto_fronts = sortNondominated(individuals, k)
+        pareto_fronts, _ = sortNondominated(individuals, k)
     elif nd == "log":
         pareto_fronts = sortLogNondominated(individuals, k)
     else:
@@ -1055,3 +1153,257 @@ def uniform_reference_points(nobj, p=4, scaling=None):
         ref_points += (1- scaling) / nobj
 
     return ref_points
+
+
+def hypervolume_contrib(front, **kargs):
+    """Returns the hypervolume contribution of each individual. The provided
+    *front* should be a set of non-dominated individuals having each a
+    :attr:`fitness` attribute.
+    """
+    # Must use wvalues * -1 since hypervolume use implicit minimization
+    # And minimization in deap use max on -obj
+    print(front)
+    for ind in front:
+        print(ind)
+    wobj = numpy.array([ind[0][1].fitness for ind in front]) * -1
+    ref = kargs.get("ref", None)
+    if ref is None:
+        ref = numpy.max(wobj, axis=0) + 1
+
+    total_hv = hv.hypervolume(wobj, ref)
+
+    def contribution(i):
+        # The contribution of point p_i in point set P
+        # is the hypervolume of P without p_i
+        return total_hv - hv.hypervolume(numpy.concatenate((wobj[:i], wobj[i+1:])), ref)
+
+    # Parallelization note: Cannot pickle local function
+    return map(contribution, range(len(front)))
+
+def r2indicator_contrib(front, W, **kargs):
+    wobj = numpy.array([ind[0][1].fitness for ind in front]) 
+    ref = kargs.get("ref", None)
+    r2 = kargs.get("r2", None)
+    if ref is None:
+        ref = numpy.max(wobj, axis=0) + 1
+    def contribution(i):
+        if r2 is None:
+            return r2indicator(numpy.concatenate((wobj[:i], wobj[i+1:])), W, ref)
+        else:
+            return newr2indicator(numpy.concatenate((wobj[:i], wobj[i+1:])), W, ref)
+
+    return map(contribution, range(len(front)))
+
+def r2indicator(wobj,W,ref):
+    r2 = 0.0
+    for weight in W:
+        mng = 100000.0
+        for a in wobj:
+            g = -100000.0
+            for idx in range(weight):
+                g = max(g, weight[idx]*abs(ref[idx]-a[idx]))
+            mng = min(mng, g)
+        r2 = r2 + mng
+    r2 = r2 / len(W)
+    return r2
+
+def newr2indicator(wobj, W, ref):
+    """A new R2 indicator for better hypervolume approximation presented by Ke Shang et al. (2018).
+    :param wobj: A list of individuals to select from.
+    :param W: A list of weights vector.
+    :pram ref: A reference point.
+    :returns: r2 indicator value."""
+    r2 = 0.0
+    for weight in W:
+        mxg = -100000.0
+        for a in wobj:
+            g = 100000.0
+            for idx in range(weight):
+                g = min(g, abs(ref[idx]-a[idx]) / weight[idx])
+            mxg = max(mxg, g)
+        mxg = math.pow(mxg, len(weight))
+        r2 = r2 + mxg
+    r2 = r2 / len(W)
+    return r2
+
+def get_extreme_points_c(F, ideal_point, extreme_points=None):
+    # calculate the asf which is used for the extreme point decomposition
+    weights = numpy.eye(F.shape[1])
+    weights[weights == 0] = 1e6
+
+    # add the old extreme points to never loose them for normalization
+    _F = F
+    if extreme_points is not None:
+        _F = numpy.concatenate([extreme_points, _F], axis=0)
+    
+    # use __F because we substitute small values to be 0
+    __F = _F - ideal_point
+    __F[__F < 1e-3] = 0
+
+    # update the extreme points for the normalization having the highest asf value each
+    F_asf = numpy.max(__F * weights[:, None, :], axis=2)
+
+    I = numpy.argmin(F_asf, axis=1)
+    extreme_points = _F[I,:]
+    #print("extreme_points")
+    #print(extreme_points)
+    #print("extreme_points.shape")
+    #print(extreme_points.shape)
+    return extreme_points
+
+def calc_norm_pref_distance(A, B, weights, ideal, nadir):
+    D = numpy.repeat(A, B.shape[0], axis=0)- numpy.tile(B, (A.shape[0], 1))
+    N = ((D / (nadir- ideal)) ** 2) * weights
+    N = numpy.sqrt(numpy.sum(N,axis=1) * len(weights))
+    return numpy.reshape(N, (A.shape[0], B.shape[0]))
+
+def r_modifiedcrowding(d, n_survive, individuals, ref_points, epsilon, extreme_points_as_reference_points, first_front_only=False,weights=None,normalization="no"):
+    if weights is None:
+        weights = numpy.full(d, 1 / d)
+    if ref_points is None:
+        ref_points = numpy.zeros(d)
+    ideal_point = numpy.full(d, numpy.inf)
+    nadir_point = numpy.full(d, -numpy.inf)
+
+    survivors = []
+    return_individuals = []
+
+    fronts, fronts_indices = sortNondominated2(individuals,len(individuals), first_front_only)
+    #print("fronts")
+    #print(fronts)
+    #print("fronts_indices")
+    #print(fronts_indices)
+    np_fronts_indices = numpy.array([numpy.array(indices) for indices in fronts_indices])
+    #np_fronts_indices = numpy.array([[numpy.array(indices) for indices in sublist] for sublist in fronts_indices])
+    #print("np_fronts_indices")
+    #print(np_fronts_indices)
+    #np_fronts = numpy.array([numpy.array(e[1].fitness) for e in front for front in fronts])
+    np_fronts = numpy.array([numpy.array([e[1].fitness for e in front]) for front in fronts])
+    #np_fronts = numpy.array([[numpy.array(e[1].fitness) for e in sublist] for sublist in fronts])
+    #np_fronts = np_fronts[0]
+    #print("np_fronts:")
+    #print(np_fronts)
+    np_fronts = numpy.array([1.0-np_front for np_front in np_fronts])
+    #print("np_fronts:")
+    #print(np_fronts)
+    #print("fronts")
+    #print(individuals)
+    individuals_np_fitnesses = numpy.array([(ind[1].fitness) for ind in individuals])
+    individuals_np_fitnesses = numpy.array(1.0-individuals_np_fitnesses)
+    #print("individuals_np_fitnesses:")
+    #print(individuals_np_fitnesses)
+    if normalization == "ever":
+
+        ideal_point = numpy.min(numpy.vstack((ideal_point, individuals_np_fitnesses)), axis=0)
+        nadir_point = numpy.max(numpy.vstack((nadir_point, individuals_np_fitnesses)), axis=0)
+        print(numpy.vstack((ideal_point, individuals_np_fitnesses)))
+    elif normalization == "front":
+        front = np_fronts[0]
+        if len(front) > 1:
+            ideal_point = numpy.min(individuals_np_fitnesses[front],axis=0)
+            nadir_point = numpy.max(individuals_np_fitnesses[front],axis=0)
+
+    elif normalization == "no":
+        ideal_point = numpy.zeros(d)
+        nadir_point = numpy.ones(d)
+    if numpy.array_equal(ideal_point, nadir_point):
+        ideal_point = numpy.zeros(d)
+        nadir_point = numpy.ones(d)
+    if extreme_points_as_reference_points:
+        ref_points = numpy.row_stack([ref_points, get_extreme_points_c(individuals_np_fitnesses, ideal_point)])
+    #print(ref_points)
+    #print("ref_points")
+    #print(ref_points)
+    #print("ref_points.shape")
+    #print(ref_points.shape)
+    dist_to_ref_points = calc_norm_pref_distance(individuals_np_fitnesses, ref_points, weights, ideal_point, nadir_point)
+    #print("dist_to_ref_points")
+
+    #print(dist_to_ref_points)
+
+    for k, front in enumerate(np_fronts_indices):
+
+        if(k==0):
+            new_ref_point = numpy.full(d, 0.0)
+            for dim in range(d):
+                validnum=0
+                for fidx in front:
+                    if(individuals_np_fitnesses[fidx][dim]!=1.0):
+                        validnum+=1
+                        new_ref_point[dim]+=individuals_np_fitnesses[fidx][dim]
+                if(validnum!=0):
+                    new_ref_point[dim]/=validnum
+                elif(validnum==0):
+                    new_ref_point[dim] = 1.0
+            if(numpy.count_nonzero(ref_points[0])!=0 and isdominated(ref_points[0],new_ref_point)):
+                new_ref_point=ref_points[0]
+                #print("New ref points")
+                #print(new_ref_point)
+        # number of individuals remaining
+        n_remaining = n_survive - len(survivors)
+        #print(front, front.shape)
+        # the ranking of each point regarding each reference point (two times argsort is necessary)
+        rank_by_distance = numpy.argsort(numpy.argsort(dist_to_ref_points[front], axis=0), axis=0)
+        #print("rank_by_distance")
+        #print(numpy.argsort(dist_to_ref_points[front], axis=0))
+        #print(rank_by_distance)
+        # the reference point where the best ranking is coming from
+        ref_point_of_best_rank = numpy.argmin(rank_by_distance, axis=1)
+
+        # the actual ranking which is used as crowding
+        ranking = rank_by_distance[numpy.arange(len(front)), ref_point_of_best_rank]
+        #print("ranking")
+        #print(ranking)
+        if len(front) <= n_remaining:
+
+            # we can simply copy the crowding to ranking. not epsilon selection here
+            crowding = ranking
+            I = numpy.arange(len(front))
+
+        else:
+            # Distance from solution to every other solution and set distance to itself to infinity
+            dist_to_others = calc_norm_pref_distance(individuals_np_fitnesses[front], individuals_np_fitnesses[front], weights, ideal_point, nadir_point)
+            numpy.fill_diagonal(dist_to_others, numpy.inf)
+
+            # the crowding that will be used for selection
+            crowding = numpy.full(len(front), numpy.nan)
+
+            # solutions which are not already selected - for
+            not_selected = numpy.argsort(ranking)
+
+            # until we have saved a crowding for each solution
+            while len(not_selected) >0:
+
+                # select the closest solution
+                idx = not_selected[0]
+                # set crowding for that individual
+                crowding[idx] = ranking[idx]
+                # need to remove myself from not-selected array
+                to_remove = [idx]
+
+                # Group of close solutions
+                dist = dist_to_others[idx][not_selected]
+                group = not_selected[numpy.where(dist < epsilon)[0]]
+
+                # if there exists solution with a distance less than epsilon
+                if len(group):
+                    # discourage them by giving them a high crowding
+                    crowding[group] = ranking[group] + numpy.round(len(front)/2)
+
+                    # remove group from not_selected array
+                    to_remove.extend(group)
+
+                not_selected = numpy.array([i for i in not_selected if i not in to_remove])
+
+            # now sort by the crowding (actually modified ran) ascending and let the best survive
+            I = numpy.argsort(crowding)[:n_remaining]
+
+        # set the crowding to all individuals
+
+        # extend the survivors by all or selected individuals
+        survivors.extend(front[I])
+    #print("survivors_indices")
+    #print(survivors)
+    for idx in survivors:
+        return_individuals.append(individuals[idx])
+    return return_individuals,new_ref_point

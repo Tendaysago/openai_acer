@@ -136,11 +136,16 @@ class StdOutReporter(BaseReporter):
                 #af = "--" if s.adjusted_fitness is None else "{0}".format(s.adjusted_fitness)
                 else:
                     af = "--"
+                if s.ref_points is not None:
+                    r_pts = [round(s.ref_points[i], 4) for i in range(len(s.ref_points))]
+                    r_pts = "{0}".format(r_pts)
+                else:
+                    r_pts = "--"
                 pf = "--" if s.priority_fitness is None else "{:.4f}".format(s.priority_fitness)
                 st = self.generation - s.last_improved
                 print(
-                    "  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, pf, af, st))
-                self.filewrite("  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, pf, af, st))
+                    "  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, r_pts, pf, af, st))
+                self.filewrite("  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, r_pts, pf, af, st))
         else:
             print('Population of {0:d} members in {1:d} species'.format(ng, ns))
             self.filewrite('Population of {0:d} members in {1:d} species'.format(ng, ns))

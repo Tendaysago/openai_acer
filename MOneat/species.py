@@ -15,6 +15,7 @@ class Species(object):
         self.fitness = None
         self.adjusted_fitness = None
         self.fitness_history = []
+        self.ref_points = None
         self.fitness_weight = None
         self.priority_fitness = None
         self.priority_fitness_history = []
