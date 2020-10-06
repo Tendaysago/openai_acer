@@ -156,7 +156,7 @@ def MakeInput(nowRoomID, t):
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
     #input = np.full(24,-1.0,dtype=float)
-    input = np.full(7,-1.0,dtype=float)
+    input = np.full(9,-1.0,dtype=float)
     if(StairsFound):
         input[0]=1.0
     Room = RoomInfoList[nowRoomID]
@@ -227,6 +227,8 @@ def MakeInput(nowRoomID, t):
         input[5]=1.0
     #input[23]= (20.0-t) / 20.0
     input[6]= (20.0-t) / 20.0
+    input[7]= Getitemnum/5.0
+    input[8]= maxRoomID/5.0
     return input
                 
 
@@ -338,6 +340,7 @@ def RightMethod(playery,playerx):
         FrameInfo = RBParser.parse_screen(screen)
         i+=1
         if(i%100==0):
+            print("Warning! below_player tile is not door!")
             Screenprint(screen)
         if(RB.game_over()):
             return [], -1, -1
@@ -1113,7 +1116,7 @@ def checkVisited(playerY,playerX):
     return maxRoomID
 
 def eval_network(net, net_input):
-    assert (len(net_input) == 7)
+    assert (len(net_input) == 9)
     return np.argmax(net.activate(net_input))
 
 

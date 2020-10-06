@@ -19,8 +19,15 @@ class Species(object):
         self.fitness_weight = None
         self.priority_fitness = None
         self.priority_fitness_history = []
+        self.temperature = None
+        self.coolrate = None
 
-    def update(self, representative, members):
+    def update(self, representative, members, temperature, coolrate):
+        if self.temperature is None and self.coolrate is None:
+            self.temperature = temperature
+            self.coolrate = coolrate
+        else:
+            self.temperature*=self.coolrate
         self.representative = representative
         self.members = members
 
@@ -67,7 +74,9 @@ class DefaultSpeciesSet(DefaultClassConfig):
     def parse_config(cls, param_dict):
         return DefaultClassConfig(param_dict,
                                   [ConfigParameter('compatibility_threshold', float),
-                                   ConfigParameter('compatibility_fwthreshold',float,-1.0)])
+                                   ConfigParameter('compatibility_fwthreshold',float,-1.0),
+                                   ConfigParameter('coolrate',float,0.95),
+                                   ConfigParameter('initialsarate', float, 1.00)])
 
     def speciate(self, config, population, generation):
         """
@@ -83,6 +92,9 @@ class DefaultSpeciesSet(DefaultClassConfig):
 
         compatibility_threshold = self.species_set_config.compatibility_threshold
         compatibility_fwthreshold = self.species_set_config.compatibility_fwthreshold
+        temperature = self.species_set_config.initialsarate
+        coolrate = self.species_set_config.coolrate
+
 
         # Find the best representatives for each existing species.
         unspeciated = set(iterkeys(population))
@@ -170,7 +182,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
                 self.genome_to_species[gid] = sid
 
             member_dict = dict((gid, population[gid]) for gid in members)
-            s.update(population[rid], member_dict)
+            s.update(population[rid], member_dict, temperature, coolrate)
 
         gdmean = mean(itervalues(distances.distances))
         gdstdev = stdev(itervalues(distances.distances))

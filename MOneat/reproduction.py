@@ -52,7 +52,9 @@ class DefaultReproduction(DefaultClassConfig):
                                    ConfigParameter('dimension', int, 1),
                                    ConfigParameter('nsga2threshold',float,0.4),
                                    ConfigParameter('nsga2nd',str,'standard'),
-                                   ConfigParameter('first_front_only',bool,False)])
+                                   ConfigParameter('first_front_only',bool,False),
+                                   ConfigParameter('coolrate',float,0.95),
+                                   ConfigParameter('initialsarate', float, 1.00)])
 
     def __init__(self, config, reporters, stagnation):
         # pylint: disable=super-init-not-called
@@ -136,7 +138,7 @@ class DefaultReproduction(DefaultClassConfig):
 
         return spawn_amounts
 
-    def reproduce(self, config, species, pop_size, generation):
+    def reproduce(self, config, species, pop_size, generation, allhistory):
         """
         Handles creation of genomes, either from scratch or by sexual or
         asexual reproduction from parents.
@@ -221,11 +223,17 @@ class DefaultReproduction(DefaultClassConfig):
             assert spawn > 0
 
             # The species has at least one member for the next generation, so retain it.
-            # print(s.members)
+            #print(s.members)
             old_members = list(iteritems(s.members))
-            # print(old_members)
-            # print("--------")
+            allhistory.extend(list(iteritems(s.members)))
+            clustered_old_members = None
+            #print(old_members)
+            #print("--------")
             s.members = {}
+            if s.temperature is None:
+                s.temperature = self.reproduction_config.initialSArate
+            else:
+                s.temperature = s.temperature*self.reproduction_config.coolrate
             species.species[s.key] = s
 
             # Only use the survival threshold fraction to use as parents for the next generation.
@@ -267,7 +275,7 @@ class DefaultReproduction(DefaultClassConfig):
                 #print(old_members)
             elif self.reproduction_config.multi_optimization=='RNSGA2':
                 epsilon = 0.01
-                old_members, s.ref_points = r_modifiedcrowding(3,repro_cutoff,old_members,s.ref_points,epsilon,True)
+                old_members, s.ref_points, clustered_old_members = r_modifiedcrowding(3,repro_cutoff,old_members,s.ref_points,epsilon,True)
 
 
             if self.reproduction_config.elitism > 0 and self.reproduction_config.priority_elitism<=0:
@@ -285,12 +293,32 @@ class DefaultReproduction(DefaultClassConfig):
                 continue
 
             old_members = old_members[:repro_cutoff]
+            clustered_old_members_cnt = [[len(cls),idx] for idx,cls in enumerate(clustered_old_members)]
+            clustered_old_members_cnt = [comc for comc in clustered_old_members_cnt if comc[0]!=0]
+            #print(clustered_old_members_cnt)
+            clustered_old_members_cnt.sort()
+            #print(clustered_old_members_cnt)
+            if random.random()<s.temperature:
+                revsorted_clustered_old_members_cnt = sorted(clustered_old_members_cnt,reverse=True)
+            else:
+                revsorted_clustered_old_members_cnt = clustered_old_members_cnt
+            for i in range(len(clustered_old_members_cnt)):
+                #print(clustered_old_members_cnt[i])
+                clustered_old_members_cnt[i][0] = revsorted_clustered_old_members_cnt[i][0]
+            choice_cluster= -1
             while spawn > 0:
                 spawn -= 1
-
-                parent1_id, parent1 = random.choice(old_members)
-                parent2_id, parent2 = random.choice(old_members)
-
+                if clustered_old_members is None:
+                    parent1_id, parent1 = random.choice(old_members)
+                    parent2_id, parent2 = random.choice(old_members)
+                else:
+                    for i in range(len(clustered_old_members_cnt)):
+                        if(clustered_old_members_cnt[i][0]>0):
+                            clustered_old_members_cnt[i][0]-=1
+                            choice_cluster=clustered_old_members_cnt[i][1]
+                            break
+                    parent1_id, parent1 = random.choice(clustered_old_members[choice_cluster])
+                    parent2_id, parent2 = random.choice(clustered_old_members[choice_cluster])
                 # Note that if the parents are not distinct, crossover will produce a
                 # genetically identical clone of the parent (but with a different ID).
                 gid = next(self.genome_indexer)
@@ -300,13 +328,14 @@ class DefaultReproduction(DefaultClassConfig):
                 new_population[gid] = child
                 self.ancestors[gid] = (parent1_id, parent2_id)
 
-        return new_population
+        allhistory= selNSGA2(0, allhistory,len(allhistory), 'standard', True)
+        return new_population, allhistory
 
     
 
 def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
     if nd == 'standard':
-        pareto_fronts, _ = sortNondominated(individuals, k,first_front_only)
+        pareto_fronts = sortNondominated(individuals, k,first_front_only)
     elif nd == 'log':
         pareto_fronts, _ = sortLogNondominated(individuals, k,first_front_only)
     else:
@@ -1253,11 +1282,12 @@ def get_extreme_points_c(F, ideal_point, extreme_points=None):
 
 def calc_norm_pref_distance(A, B, weights, ideal, nadir):
     D = numpy.repeat(A, B.shape[0], axis=0)- numpy.tile(B, (A.shape[0], 1))
-    N = ((D / (nadir- ideal)) ** 2) * weights
+    epsilon_array = numpy.full(nadir.shape, 0.0001)
+    N = ((D / (nadir- ideal + epsilon_array)) ** 2) * weights
     N = numpy.sqrt(numpy.sum(N,axis=1) * len(weights))
     return numpy.reshape(N, (A.shape[0], B.shape[0]))
 
-def r_modifiedcrowding(d, n_survive, individuals, ref_points, epsilon, extreme_points_as_reference_points, first_front_only=False,weights=None,normalization="no"):
+def r_modifiedcrowding(d, n_survive, individuals, ref_points, epsilon, extreme_points_as_reference_points, first_front_only=False,weights=None,normalization="ever"):
     if weights is None:
         weights = numpy.full(d, 1 / d)
     if ref_points is None:
@@ -1290,13 +1320,14 @@ def r_modifiedcrowding(d, n_survive, individuals, ref_points, epsilon, extreme_p
     #print(individuals)
     individuals_np_fitnesses = numpy.array([(ind[1].fitness) for ind in individuals])
     individuals_np_fitnesses = numpy.array(1.0-individuals_np_fitnesses)
-    #print("individuals_np_fitnesses:")
-    #print(individuals_np_fitnesses)
+    return_individuals_clustering = [[] for i in range(d+1)]
+   #print("individuals_np_fitnesses:")
+   #print(individuals_np_fitnesses)
     if normalization == "ever":
 
         ideal_point = numpy.min(numpy.vstack((ideal_point, individuals_np_fitnesses)), axis=0)
         nadir_point = numpy.max(numpy.vstack((nadir_point, individuals_np_fitnesses)), axis=0)
-        print(numpy.vstack((ideal_point, individuals_np_fitnesses)))
+       #print(numpy.vstack((ideal_point, individuals_np_fitnesses)))
     elif normalization == "front":
         front = np_fronts[0]
         if len(front) > 1:
@@ -1311,18 +1342,24 @@ def r_modifiedcrowding(d, n_survive, individuals, ref_points, epsilon, extreme_p
         nadir_point = numpy.ones(d)
     if extreme_points_as_reference_points:
         ref_points = numpy.row_stack([ref_points, get_extreme_points_c(individuals_np_fitnesses, ideal_point)])
-    #print(ref_points)
-    #print("ref_points")
-    #print(ref_points)
+    ref_points_usednum = numpy.zeros(len(ref_points))
+   #print(ref_points)
+   #print("ref_points")
+   #print(ref_points)
     #print("ref_points.shape")
     #print(ref_points.shape)
     dist_to_ref_points = calc_norm_pref_distance(individuals_np_fitnesses, ref_points, weights, ideal_point, nadir_point)
+    survive_count=0
     #print("dist_to_ref_points")
 
     #print(dist_to_ref_points)
-
+    dist_to_ref_points_rank = numpy.argmin(dist_to_ref_points, axis=1)
     for k, front in enumerate(np_fronts_indices):
-
+       #print("front Rank:{0}".format(k))
+       #print("front index")
+       #print(front)
+       #print("front fitnesses")
+       #print(individuals_np_fitnesses[front])
         if(k==0):
             new_ref_point = numpy.full(d, 0.0)
             for dim in range(d):
@@ -1344,16 +1381,21 @@ def r_modifiedcrowding(d, n_survive, individuals, ref_points, epsilon, extreme_p
         #print(front, front.shape)
         # the ranking of each point regarding each reference point (two times argsort is necessary)
         rank_by_distance = numpy.argsort(numpy.argsort(dist_to_ref_points[front], axis=0), axis=0)
-        #print("rank_by_distance")
-        #print(numpy.argsort(dist_to_ref_points[front], axis=0))
-        #print(rank_by_distance)
+       #print("rank_by_distance")
+       #print(numpy.argsort(dist_to_ref_points[front], axis=0))
+       #print(rank_by_distance)
         # the reference point where the best ranking is coming from
         ref_point_of_best_rank = numpy.argmin(rank_by_distance, axis=1)
-
+        for i in range(len(rank_by_distance)):
+            if(survive_count<=n_survive):
+                ref_points_usednum[numpy.where(rank_by_distance[i] == rank_by_distance[i].min())]+=1
+                survive_count+=1
+       #print("ref_point_of_best_rank")
+       #print(ref_point_of_best_rank)
         # the actual ranking which is used as crowding
         ranking = rank_by_distance[numpy.arange(len(front)), ref_point_of_best_rank]
-        #print("ranking")
-        #print(ranking)
+       #print("ranking")
+       #print(ranking)
         if len(front) <= n_remaining:
 
             # we can simply copy the crowding to ranking. not epsilon selection here
@@ -1402,8 +1444,26 @@ def r_modifiedcrowding(d, n_survive, individuals, ref_points, epsilon, extreme_p
 
         # extend the survivors by all or selected individuals
         survivors.extend(front[I])
-    #print("survivors_indices")
-    #print(survivors)
+   #print("survivors_indices")
+   #print(survivors)
+    for idx in survivors:
+        #print(idx,dist_to_ref_points_rank[idx])
+        #print(individuals[idx])
+        return_individuals_clustering[dist_to_ref_points_rank[idx]].append(individuals[idx])
+   #print("ref_points_usednum")
+   #print(ref_points_usednum)
+   #print(ref_points_usednum[1:])
+    #print(return_individuals_clustering)
+    new_ref_point = ref_points[ref_points_usednum[1:].argmin()+1]
+    if(isdominated(ref_points[0], new_ref_point)):
+        new_ref_point = ref_points[0]
+   #print("ref_points")
+   #print(ref_points)
+   #print("next generation new_ref_point")
+   #print(new_ref_point)
+   #print("****")
     for idx in survivors:
         return_individuals.append(individuals[idx])
-    return return_individuals,new_ref_point
+    
+
+    return return_individuals,new_ref_point,return_individuals_clustering

@@ -23,11 +23,21 @@ class StatisticsReporter(BaseReporter):
         self.generation_statistics = []
         #self.generation_cross_validation_statistics = []
         self.species_now_all_fitness = []
+        self.allpareto_history = []
 
-    def end_generation(self, config, population, species_set):
+    def end_generation(self, config, population, species_set, allhistory=None):
+        self.allpareto_history = allhistory
         if(config.pareto_plot_interval>0 and \
             len(self.most_fit_genomes)%config.pareto_plot_interval==0):
-            visualize.plot_stats3D(self)
+            current_pareto_plot_data = \
+                [list(front.values()) for front in self.species_now_all_fitness[0]]
+            print(current_pareto_plot_data)
+            visualize.plot_stats3D(len(self.most_fit_genomes),current_pareto_plot_data,filename='current_generation_paretofront_fitness')
+            print(self.allpareto_history)
+            allhistory_pareto_plot_data = \
+                [[ind[1].fitness for ind in self.allpareto_history]]
+            print(allhistory_pareto_plot_data)
+            visualize.plot_stats3D(len(self.most_fit_genomes),allhistory_pareto_plot_data,filename='allhistory_paretofront_fitness')
 
     def post_evaluate(self, config, population, species, best_genome):
         self.most_fit_genomes.append(copy.deepcopy(best_genome))

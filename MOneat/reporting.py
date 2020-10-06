@@ -32,9 +32,9 @@ class ReporterSet(object):
         for r in self.reporters:
             r.start_generation(gen)
 
-    def end_generation(self, config, population, species_set):
+    def end_generation(self, config, population, species_set,allhistory):
         for r in self.reporters:
-            r.end_generation(config, population, species_set)
+            r.end_generation(config, population, species_set,allhistory)
 
     def post_evaluate(self, config, population, species, best_genome):
         for r in self.reporters:
@@ -56,6 +56,10 @@ class ReporterSet(object):
         for r in self.reporters:
             r.species_stagnant(sid, species)
 
+    def history_save(self, allhistory):
+        for r in self.reporters:
+            r.history_save()
+
     def info(self, msg):
         for r in self.reporters:
             r.info(msg)
@@ -66,7 +70,7 @@ class BaseReporter(object):
     def start_generation(self, generation):
         pass
 
-    def end_generation(self, config, population, species_set):
+    def end_generation(self, config, population, species_set, allhistory):
         pass
 
     def post_evaluate(self, config, population, species, best_genome):
@@ -82,6 +86,9 @@ class BaseReporter(object):
         pass
 
     def species_stagnant(self, sid, species):
+        pass
+
+    def history_save(self, allhistory):
         pass
 
     def info(self, msg):
@@ -104,7 +111,7 @@ class StdOutReporter(BaseReporter):
         self.filewrite('\n ****** Running generation {0} ****** \n'.format(generation))
         self.generation_start_time = time.time()
 
-    def end_generation(self, config, population, species_set):
+    def end_generation(self, config, population, species_set, allhistory=None):
         ng = len(population)
         ns = len(species_set.species)
         if self.show_species_detail:
@@ -112,10 +119,10 @@ class StdOutReporter(BaseReporter):
             self.filewrite('Population of {0:d} members in {1:d} species:'.format(ng, ns))
             sids = list(iterkeys(species_set.species))
             sids.sort()
-            print("   ID   age  size       fitness      priority_fitness    adj fit       stag")
-            print("  ====  ===  ====  =================      =======     ===============  ====")
-            self.filewrite("   ID   age  size       fitness      priority_fitness    adj fit       stag")
-            self.filewrite("  ====  ===  ====  =================      =======     ===============  ====")
+            print("   ID   age  size       fitness        ref_point  priority_fitness    adj fit     temperature  stag")
+            print("  ====  ===  ====  =================  ===========    =======     =============== ======= ====")
+            self.filewrite("   ID   age  size       fitness        ref_point  priority_fitness    adj fit     temperature  stag")
+            self.filewrite("  ====  ===  ====  =================  ===========    =======     =============== ======= ====")
             for sid in sids:
                 s = species_set.species[sid]
                 a = self.generation - s.created
@@ -123,6 +130,7 @@ class StdOutReporter(BaseReporter):
                 #f = "--" if s.fitness is None else "{:.1f}".format(s.fitness)
                 f = None
                 af = None
+                tempe = None
                 if s.fitness:
                     f = [round(s.fitness[i], 4) for i in range(len(s.fitness))] 
                     f = "{0}".format(f)
@@ -141,11 +149,14 @@ class StdOutReporter(BaseReporter):
                     r_pts = "{0}".format(r_pts)
                 else:
                     r_pts = "--"
+                if s.temperature is not None:
+                    tempe = round(s.temperature, 4)
+                    tempe = "{0}".format(tempe)
                 pf = "--" if s.priority_fitness is None else "{:.4f}".format(s.priority_fitness)
                 st = self.generation - s.last_improved
                 print(
-                    "  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, r_pts, pf, af, st))
-                self.filewrite("  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}  {: >4}".format(sid, a, n, f, r_pts, pf, af, st))
+                    "  {: >4}  {: >3}  {: >4}  {: >4}  {: >4}  {: >4} {: >4} {: >4}  {: >4}".format(sid, a, n, f, r_pts, pf, af,tempe, st))
+                self.filewrite("  {: >4}  {: >3}  {: >4}  {: >4}  {: >4} {: >4} {: >4}  {: >4}  {: >4}".format(sid, a, n, f, r_pts, pf, af,tempe, st))
         else:
             print('Population of {0:d} members in {1:d} species'.format(ng, ns))
             self.filewrite('Population of {0:d} members in {1:d} species'.format(ng, ns))

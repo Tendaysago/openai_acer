@@ -51,51 +51,66 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
 
     plt.close()
 
-def plot_stats3D(statistics, ylog=False, view=False, filename='paretofront_fitness.svg'):
+def plot_stats3D(generation, plot_data, ylog=False, view=False, filename='paretofront_fitness.svg'):
     """ Plots the population's species pareto front. """
     global timestamp
     if(timestamp==None):
         timestamp = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    fig = plt.figure()
+    fig = plt.figure(figsize=(7,7))
     ax = Axes3D(fig)
-    ax.set_xlabel("(20-Explorenum)/20")
-    ax.set_ylabel("(Defeat Enemy num)/10")
-    ax.set_zlabel("(Pick item num)/6.0")
-    ax.set_xlim(-0.2, 1)
+    ax.set_xlabel("Down stairs success num/10.0")
+    ax.set_ylabel("Find Roomnum/5.0")
+    ax.set_zlabel("Pick item num/5.0")
+    ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_zlim(0, 1)
-    generation = len(statistics.most_fit_genomes)
+    #generation = len(statistics.most_fit_genomes)
     #paretofront_fitness = [c.fitness for c in statistics.most_fit_genomes]
-    paretofront_fitness = statistics.species_now_all_fitness
+    #paretofront_fitness = statistics.species_now_all_fitness
+    paretofront_fitness = plot_data
     #print(paretofront_fitness)
     #print(len(paretofront_fitness[0]))
     #print(len(paretofront_fitness[0][0]))
     #print(len(paretofront_fitness[0][0][1]))
     #assert(len(paretofront_fitness[0][0][1])==3)
     speciesnum=0
-    for sidx in range(len(paretofront_fitness[0])):
-        if(len(colors)<=speciesnum):
-            break
-        if(len(paretofront_fitness[0][sidx])==0):
-            continue
-        print(paretofront_fitness[0][sidx])
-        X = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
-        Y = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
-        Z = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+    #for sidx in range(len(paretofront_fitness[0])):
+    for front in paretofront_fitness:
+        #print(front)
+        #if(len(colors)<=speciesnum):
+        #    break
+        #if(len(paretofront_fitness[0][sidx])==0):
+        #    continue
+        #print(paretofront_fitness[0][sidx])
+        #X = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        #Y = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        #Z = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        X = np.zeros(len(front),dtype=float)
+        Y = np.zeros(len(front),dtype=float)
+        Z = np.zeros(len(front),dtype=float)
         fidx=0
-        for fitness in paretofront_fitness[0][sidx].values():
+        #for fitness in paretofront_fitness[0][sidx].values():
+        #    X[fidx]=fitness[0]
+        #    Y[fidx]=fitness[1]
+        #    Z[fidx]=fitness[2]
+        #    fidx+=1
+        for sidx in range(len(front)):
+            fitness = front[sidx]
             X[fidx]=fitness[0]
             Y[fidx]=fitness[1]
             Z[fidx]=fitness[2]
             fidx+=1
-        print(X)
-        print(Y)
-        print(Z)
-        ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="species "+str(speciesnum+1))
+        if(len(front)!=0):
+            ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="Group "+str(speciesnum+1))
+            speciesnum+=1
+        #print(X)
+        #print(Y)
+        #print(Z)
+        #ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="species "+str(speciesnum+1))
         speciesnum+=1
     ax.legend(loc=2, title='species', shadow=True)
-    plt.title("Generation " + str(generation) + " paretofront_fitnesses")
-    filename= timestamp + "paretofront_fitness_gen_"+str(generation)+".png"
+    plt.title("Generation " + str(generation) + filename)
+    filename= timestamp + filename + "_gen_"+ str(generation)+".png"
     plt.savefig(filename)
     plt.close()
 

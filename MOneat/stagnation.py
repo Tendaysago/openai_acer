@@ -44,9 +44,7 @@ class DefaultStagnation(DefaultClassConfig):
             if s.fitness_history:
                 prev_fitness = max(s.fitness_history)
             if s.priority_fitness_history:
-                prev_priority_fitness = max(s.priority_fitness_history) 
-            if s.ref_points is not None:
-                prev_ref_points = s.ref_points 
+                prev_priority_fitness = max(s.priority_fitness_history)  
             else:
                 if self.species_fitness_func is stat_functions['momean']:
                     prev_fitness = []
@@ -68,12 +66,16 @@ class DefaultStagnation(DefaultClassConfig):
             if s.ref_points is None:
                 s.ref_points = numpy.full(len(s.get_fitnesses()[0]),1.0)
             #if prev_fitness is None or s.fitness > prev_fitness:
-            if prev_priority_fitness is None or s.priority_fitness > prev_priority_fitness:
+            if prev_fitness is None or isdominated(prev_fitness,s.fitness):
                 s.last_improved = generation
+            #if prev_priority_fitness is None or s.priority_fitness > prev_priority_fitness:
+            #    s.last_improved = generation
             if prev_ref_points is None:
                 s.last_improved = generation
-            elif isdominated(s.ref_points,prev_ref_points):
+            elif isdominated(prev_ref_points, s.ref_points):
                 s.last_improved = generation
+            if s.ref_points is not None:
+                prev_ref_points = s.ref_points
             
             species_data.append((sid, s))
 

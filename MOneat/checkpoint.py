@@ -12,7 +12,7 @@ except ImportError:
 
 from MOneat.population import Population
 from MOneat.reporting import BaseReporter
-
+from . import visualize
 
 class Checkpointer(BaseReporter):
     """
@@ -42,7 +42,7 @@ class Checkpointer(BaseReporter):
     def start_generation(self, generation):
         self.current_generation = generation
 
-    def end_generation(self, config, population, species_set):
+    def end_generation(self, config, population, species_set, allhistory):
         checkpoint_due = False
 
         if self.time_interval_seconds is not None:

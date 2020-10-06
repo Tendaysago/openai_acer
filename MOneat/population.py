@@ -45,8 +45,9 @@ class Population(object):
             self.species = config.species_set_type(config.species_set_config, self.reporters)
             self.generation = 0
             self.species.speciate(config, self.population, self.generation)
+            self.allhistory = []
         else:
-            self.population, self.species, self.generation = initial_state
+            self.population, self.species, self.generation, self.allhistory = initial_state
 
         self.best_genome = None
 
@@ -107,8 +108,8 @@ class Population(object):
                     break
 
             # Create the next generation from the current generation.
-            self.population = self.reproduction.reproduce(self.config, self.species,
-                                                          self.config.pop_size, self.generation)
+            self.population, self.allhistory = self.reproduction.reproduce(self.config, self.species,
+                                                          self.config.pop_size, self.generation, self.allhistory)
 
             # Check for complete extinction.
             if not self.species.species:
@@ -126,7 +127,7 @@ class Population(object):
             # Divide the new population into species.
             self.species.speciate(self.config, self.population, self.generation)
 
-            self.reporters.end_generation(self.config, self.population, self.species)
+            self.reporters.end_generation(self.config, self.population, self.species, self.allhistory)
 
             self.generation += 1
 
