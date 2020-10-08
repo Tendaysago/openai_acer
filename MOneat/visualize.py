@@ -100,7 +100,7 @@ def plot_stats3D(generation, plot_data, ylog=False, view=False, filename='pareto
             Y[fidx]=fitness[1]
             Z[fidx]=fitness[2]
             fidx+=1
-        if(len(front)!=0):
+        if(len(front)!=0 and speciesnum<len(colors)):
             ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="Group "+str(speciesnum+1))
             speciesnum+=1
         #print(X)

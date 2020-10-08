@@ -4,7 +4,7 @@ fitness_threshold     = 50
 pop_size              = 80
 reset_on_extinction   = False
 no_fitness_termination= True
-pareto_plot_interval = 3
+pareto_plot_interval = 10
 
 [DefaultGenome]
 # node activation options
@@ -77,7 +77,7 @@ weight_replace_rate     = 0.0245
 compatibility_threshold = 2.8
 #compatibility_threshold = 7.0
 compatibility_fwthreshold = -1.0
-coolrate = 0.95
+coolrate = 0.98
 initialsarate = 1.00
 
 [DefaultStagnation]

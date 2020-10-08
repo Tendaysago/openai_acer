@@ -31,12 +31,12 @@ class StatisticsReporter(BaseReporter):
             len(self.most_fit_genomes)%config.pareto_plot_interval==0):
             current_pareto_plot_data = \
                 [list(front.values()) for front in self.species_now_all_fitness[0]]
-            print(current_pareto_plot_data)
+            #print(current_pareto_plot_data)
             visualize.plot_stats3D(len(self.most_fit_genomes),current_pareto_plot_data,filename='current_generation_paretofront_fitness')
-            print(self.allpareto_history)
+            #print(self.allpareto_history)
             allhistory_pareto_plot_data = \
                 [[ind[1].fitness for ind in self.allpareto_history]]
-            print(allhistory_pareto_plot_data)
+            #print(allhistory_pareto_plot_data)
             visualize.plot_stats3D(len(self.most_fit_genomes),allhistory_pareto_plot_data,filename='allhistory_paretofront_fitness')
 
     def post_evaluate(self, config, population, species, best_genome):
@@ -207,8 +207,8 @@ class StatisticsReporter(BaseReporter):
         for mf in member_fitness:
             if mf:
                 fitness.append(mf)
-            else:
-                fitness.append(null_value)
+            #else:
+            #    fitness.append(null_value)
         species_fitness.append(fitness)
         self.species_now_all_fitness = species_fitness
         return self.species_now_all_fitness

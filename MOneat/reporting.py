@@ -10,7 +10,7 @@ import datetime
 from math import sqrt
 from MOneat.math_util import mean, stdev, momean, mostdev
 from MOneat.six_util import itervalues, iterkeys
-
+from MOneat.reproduction import hypervolume_totalhv
 # TODO: Add a curses-based reporter.
 
 
@@ -114,6 +114,8 @@ class StdOutReporter(BaseReporter):
     def end_generation(self, config, population, species_set, allhistory=None):
         ng = len(population)
         ns = len(species_set.species)
+        allhistory_hv = hypervolume_totalhv(allhistory)
+        allhistory_hv = round(allhistory_hv, 4)
         if self.show_species_detail:
             print('Population of {0:d} members in {1:d} species:'.format(ng, ns))
             self.filewrite('Population of {0:d} members in {1:d} species:'.format(ng, ns))
@@ -165,6 +167,8 @@ class StdOutReporter(BaseReporter):
         self.generation_times.append(elapsed)
         self.generation_times = self.generation_times[-10:]
         average = sum(self.generation_times) / len(self.generation_times)
+        print("All history total hypervolume: {0}".format(allhistory_hv))
+        self.filewrite("All history total hypervolume: {0}".format(allhistory_hv))
         print('Total extinctions: {0:d}'.format(self.num_extinctions))
         if len(self.generation_times) > 1:
             print("Generation time: {0:.3f} sec ({1:.3f} average)".format(elapsed, average))

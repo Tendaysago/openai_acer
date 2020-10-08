@@ -335,7 +335,7 @@ class DefaultReproduction(DefaultClassConfig):
 
 def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
     if nd == 'standard':
-        pareto_fronts = sortNondominated(individuals, k,first_front_only)
+        pareto_fronts, _ = sortNondominated2(individuals, k,first_front_only)
     elif nd == 'log':
         pareto_fronts, _ = sortLogNondominated(individuals, k,first_front_only)
     else:
@@ -347,7 +347,7 @@ def selNSGA2(d,individuals, k, nd='standard',first_front_only=False):
 
     #print(pareto_fronts)
     chosen = list(chain(*pareto_fronts[:-1]))
-    print(pareto_fronts)
+    #print(pareto_fronts)
     # print("chosen")
     # print(chosen)
     # print("chosen")
@@ -529,7 +529,7 @@ def sortNondominated2(individuals, k, first_front_only=False,reverse=False):
             current_front = next_front
             next_front = []
             next_front_indices = []
-    print("END")
+    #print("END")
     return fronts,fronts_indices
 
 def sortLogNondominated(individuals, k, first_front_only=False):
@@ -1182,6 +1182,19 @@ def uniform_reference_points(nobj, p=4, scaling=None):
         ref_points += (1- scaling) / nobj
 
     return ref_points
+
+def hypervolume_totalhv(front, **kargs):
+    #print(front)
+    #for ind in front:
+        #print(ind)
+    wobj = numpy.array([ind[1].fitness for ind in front]) * -1
+    ref = kargs.get("ref", None)
+    if ref is None:
+        ref = numpy.max(wobj, axis=0) + 1
+
+    total_hv = hv.hypervolume(wobj, ref)
+
+    return total_hv
 
 
 def hypervolume_contrib(front, **kargs):
