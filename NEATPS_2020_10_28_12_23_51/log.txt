@@ -1,6 +1,0 @@
-
- ****** Running generation 0 ****** 
-
-Population's average fitness: [0.0, 0.0, 0.0] stdev: [0.0, 0.0, 0.0]
-Best fitness: [0.0, 0.0, 0.0] - size: (55, 5) - species 1 - id 1
-Average adjusted fitness: [0.0, 0.0, 0.0]
