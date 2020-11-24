@@ -65,15 +65,25 @@ class DefaultStagnation(DefaultClassConfig):
             s.priority_fitness_history.append(s.priority_fitness)
             if s.ref_points is None:
                 s.ref_points = numpy.full(len(s.get_fitnesses()[0]),1.0)
+            if s.best_fitness is None:
+                s.best_fitness = s.fitness
+            if s.best_ref_points is None:
+                s.best_ref_points = s.ref_points
+            if s.single_best_fitnesses is None:
+                s.single_best_fitnesses = s.fitness
             #if prev_fitness is None or s.fitness > prev_fitness:
-            if prev_fitness is None or isdominated(prev_fitness,s.fitness):
+            if isdominated(s.best_fitness,s.fitness):
                 s.last_improved = generation
+                s.best_fitness = s.fitness
             #if prev_priority_fitness is None or s.priority_fitness > prev_priority_fitness:
             #    s.last_improved = generation
-            if prev_ref_points is None:
+            if isdominated(s.ref_points, s.best_ref_points):
                 s.last_improved = generation
-            elif isdominated(prev_ref_points, s.ref_points):
-                s.last_improved = generation
+                s.best_ref_points = s.ref_points
+            for d in range(len(s.single_best_fitnesses)):
+                if(s.fitness[d]>s.single_best_fitnesses[d]):
+                    s.single_best_fitnesses[d] = s.fitness[d]
+                    s.last_improved = generation
             if s.ref_points is not None:
                 prev_ref_points = s.ref_points
             

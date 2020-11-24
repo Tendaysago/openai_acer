@@ -17,7 +17,7 @@ import numpy as np
 import datetime
 from mpl_toolkits.mplot3d import Axes3D
 
-colors=["red","blue","yellow","green","purple","gray","salmon","aqua",\
+colors=["red","aqua","green","purple","gray","salmon","blue",\
     "orange","lime","plum","black"]
 timestamp = None
 
@@ -51,14 +51,37 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
 
     plt.close()
 
-def plot_stats3D(generation, plot_data, ylog=False, view=False, filename='paretofront_fitness.svg'):
+def plot_stats2D(generation, list_data, ylog=False, view=False, ylabel='Hypervolume',filename='plot_name.svg',title='plot_title'):
     """ Plots the population's species pareto front. """
-    global timestamp
-    if(timestamp==None):
-        timestamp = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    fig = plt.figure(figsize=(7,7))
+    plt.figure(figsize=(5,5))
+    plot_x = range(generation)
+    plot_y = np.array(list_data)
+    plt.plot(plot_x, plot_y, 'b-')
+    #plt.plot(generation, avg_fitness - stdev_fitness, 'g-.', label="-1 sd")
+    #plt.plot(generation, avg_fitness + stdev_fitness, 'g-.', label="+1 sd")
+    #plt.plot(generation, best_fitness, 'r-', label="best")
+    plt.rcParams["font.size"] = 16
+    plt.title(title)
+    plt.xlabel("Generations")
+    plt.ylabel(ylabel)
+    plt.xticks(np.arange(min(plot_x), max(plot_x)+1, 15))
+    plt.ylim(0,max(1,max(plot_y)))
+    #plt.legend(loc="best")
+    #plt.legend(loc="upper left")
+    if ylog:
+        plt.gca().set_yscale('symlog')
+    plt.subplots_adjust(left=0.1, right=0.95, bottom=0.1, top=0.95)
+    plt.tight_layout()
+    plt.savefig(filename)
+    if view:
+        plt.show()
+    plt.close()
+
+def plot_stats3D(generation, plot_data, ylog=False, view=False, filename='paretofront_fitness.svg',title='paretofront_plot'):
+    """ Plots the population's species pareto front. """
+    fig = plt.figure(figsize=(5,5))
     ax = Axes3D(fig)
-    ax.set_xlabel("Down stairs success num/10.0")
+    ax.set_xlabel("Down stairs success/10.0")
     ax.set_ylabel("Find Roomnum/5.0")
     ax.set_zlabel("Pick item num/5.0")
     ax.set_xlim(0, 1)
@@ -107,10 +130,11 @@ def plot_stats3D(generation, plot_data, ylog=False, view=False, filename='pareto
         #print(Y)
         #print(Z)
         #ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="species "+str(speciesnum+1))
-        speciesnum+=1
+        #speciesnum+=1
     ax.legend(loc=2, title='species', shadow=True)
-    plt.title("Generation " + str(generation) + filename)
-    filename= timestamp + filename + "_gen_"+ str(generation)+".png"
+    #plt.title("Generation " + str(generation) + filename)
+    plt.title(title)
+    #filename= timestamp + filename + "_gen_"+ str(generation)+".png"
     plt.savefig(filename)
     plt.close()
 

@@ -1,0 +1,59 @@
+
+ ****** Running generation 0 ****** 
+
+Population's average fitness: [0.0, 0.0, 0.0] stdev: [0.0, 0.0, 0.0]
+Best fitness: [0.0, 0.0, 0.0] - size: (55, 5) - species 1 - id 1
+Average adjusted fitness: [0.0, 0.0, 0.0]
+Mean genetic distance 2.097, standard deviation 1.610
+Population of 80 members in 2 species:
+   ID   age  size       fitness        best_fitness        ref_point  max_ref_point    adj fit     temperature  stag
+  ====  ===  ====  ===============  ===============  =============    =============     =============== ======= ====
+     1    0    40  [0.0, 0.0, 0.0] [0.0, 0.0, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.0, 0.0]   1.0     0
+     2    0    40  [0.0, 0.0, 0.0] [0.0, 0.0, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.0, 0.0]   1.0     0
+All history total hypervolume: 0.001
+Generation time: 0.317 sec
+
+ ****** Running generation 1 ****** 
+
+Population's average fitness: [0.0, 0.025, 0.0] stdev: [0.0, 0.025, 0.0]
+Best fitness: [0.0, 1.0, 0.0] - size: (55, 6) - species 2 - id 80
+Average adjusted fitness: [0.0, 0.025, 0.0]
+Mean genetic distance 2.240, standard deviation 1.374
+Population of 85 members in 2 species:
+   ID   age  size       fitness        best_fitness        ref_point  max_ref_point    adj fit     temperature  stag
+  ====  ===  ====  ===============  ===============  =============    =============     =============== ======= ====
+     1    1    40  [0.0, 0.01, 0.0] [0.0, 0.01, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.01, 0.0]   1.0     0
+     2    1    45  [0.0, 0.04, 0.0] [0.0, 0.04, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.04, 0.0]   1.0     0
+All history total hypervolume: 0.011
+Generation time: 25.359 sec (12.838 average)
+
+ ****** Running generation 2 ****** 
+
+Population's average fitness: [0.0, 0.04470588235294118, 0.0] stdev: [0.0, 0.5552941176470588, 0.0]
+Best fitness: [0.0, 1.0, 0.0] - size: (55, 8) - species 1 - id 86
+Average adjusted fitness: [0.0, 0.04527777777777778, 0.0]
+Mean genetic distance 2.344, standard deviation 1.207
+Population of 80 members in 2 species:
+   ID   age  size       fitness        best_fitness        ref_point  max_ref_point    adj fit     temperature  stag
+  ====  ===  ====  ===============  ===============  =============    =============     =============== ======= ====
+     1    2    40  [0.0, 0.055, 0.0] [0.0, 0.055, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.055, 0.0]  0.85     0
+     2    2    40  [0.0, 0.0356, 0.0] [0.0, 0.04, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.0356, 0.0]  0.85     1
+All history total hypervolume: 0.011
+Generation time: 30.914 sec (18.863 average)
+
+ ****** Running generation 3 ****** 
+
+Population's average fitness: [0.0, 0.1, 0.0] stdev: [0.0, 0.1, 0.0]
+Best fitness: [0.0, 1.0, 0.0] - size: (55, 7) - species 2 - id 178
+Average adjusted fitness: [0.0, 0.09999999999999999, 0.0]
+Mean genetic distance 2.428, standard deviation 1.102
+Population of 83 members in 2 species:
+   ID   age  size       fitness        best_fitness        ref_point  max_ref_point    adj fit     temperature  stag
+  ====  ===  ====  ===============  ===============  =============    =============     =============== ======= ====
+     1    3    40  [0.0, 0.065, 0.0] [0.0, 0.065, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.065, 0.0]  0.85     0
+     2    3    43  [0.0, 0.135, 0.0] [0.0, 0.135, 0.0] [1.0, 1.0, 1.0] [1.0, 1.0, 1.0] [0.0, 0.135, 0.0]  0.85     0
+All history total hypervolume: 0.011
+Generation time: 33.151 sec (22.435 average)
+
+ ****** Running generation 4 ****** 
+

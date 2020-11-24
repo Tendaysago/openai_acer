@@ -4,11 +4,17 @@ the most-fit genomes and information on genome/species fitness and species sizes
 """
 import copy
 import csv
-
+import os
+import pickle
+import datetime
+import pandas as pd
 from MOneat.math_util import mean, stdev, median2
 from MOneat.reporting import BaseReporter
 from MOneat.six_util import iteritems
+from MOneat.reproduction import hypervolume_totalhv
 from . import visualize
+timestamp = None
+globaloutpath = None
 # TODO: Make a version of this reporter that doesn't continually increase memory usage.
 # (Maybe periodically write blocks of history to disk, or log stats in a database?)
 
@@ -24,20 +30,52 @@ class StatisticsReporter(BaseReporter):
         #self.generation_cross_validation_statistics = []
         self.species_now_all_fitness = []
         self.allpareto_history = []
+        self.hvhistory = []
+        self.outnetworknum_history = []
+        self.genome_dist_history = []
 
-    def end_generation(self, config, population, species_set, allhistory=None):
+    def end_generation(self, config, population, species_set, allhistory=None,outpath=None):
+        global globaloutpath
+        globaloutpath = outpath
         self.allpareto_history = allhistory
-        if(config.pareto_plot_interval>0 and \
-            len(self.most_fit_genomes)%config.pareto_plot_interval==0):
+        allhistory_hv = hypervolume_totalhv(allhistory)
+        allhistory_hv = round(allhistory_hv, 4)
+        self.hvhistory.append(allhistory_hv)
+        self.outnetworknum_history.append(len(allhistory))
+        generation = str(len(self.most_fit_genomes))
+        if(config.output_interval>0 and \
+            len(self.most_fit_genomes)%config.output_interval==0):
+            try:
+                genoutpath = outpath+"/Gen_"+generation
+                os.makedirs(genoutpath)
+            except FileExistsError:
+                pass
+            try:
+                netoutpath = genoutpath+"/Networks"
+                os.makedirs(netoutpath)
+            except FileExistsError:
+                pass
             current_pareto_plot_data = \
                 [list(front.values()) for front in self.species_now_all_fitness[0]]
             #print(current_pareto_plot_data)
-            visualize.plot_stats3D(len(self.most_fit_genomes),current_pareto_plot_data,filename='current_generation_paretofront_fitness')
+            visualize.plot_stats3D(len(self.most_fit_genomes),current_pareto_plot_data,filename='{}/current_generation_paretofront_fitness.png'.format(genoutpath),title='Gen'+generation+'_paretofront_species')
             #print(self.allpareto_history)
             allhistory_pareto_plot_data = \
                 [[ind[1].fitness for ind in self.allpareto_history]]
             #print(allhistory_pareto_plot_data)
-            visualize.plot_stats3D(len(self.most_fit_genomes),allhistory_pareto_plot_data,filename='allhistory_paretofront_fitness')
+            visualize.plot_stats3D(len(self.most_fit_genomes),allhistory_pareto_plot_data,filename='{}/allhistory_paretofront_fitness'.format(genoutpath),
+            title='Gen'+generation+'_allhistory_pareto_front')
+            for idx in range(len(allhistory)):
+                onenetoutpath=netoutpath+'/network'+str(idx)
+                with open(onenetoutpath, 'wb') as f:
+                    pickle.dump(allhistory[idx][1], f)
+            hvdata = pd.Series(self.hvhistory)
+            hvdata.to_csv(outpath+"/"+outpath+"hv_history.csv")
+            outnetnumdata = pd.Series(self.outnetworknum_history)
+            outnetnumdata.to_csv(outpath+"/"+outpath+"outnetnum_history.csv")
+            visualize.plot_stats2D(len(self.most_fit_genomes), self.outnetworknum_history, ylog=False, view=False, ylabel='Output networknum',filename='{}/Outnetnum.png'.format(outpath),title='Output networknum')
+            visualize.plot_stats2D(len(self.most_fit_genomes), self.hvhistory, ylog=False, view=False, ylabel='Hypervolume',filename='{}/Hypervolume.png'.format(outpath),title='HyperVolume')
+
 
     def post_evaluate(self, config, population, species, best_genome):
         self.most_fit_genomes.append(copy.deepcopy(best_genome))

@@ -58,7 +58,7 @@ def _eval_genomes(eval_single_genome, genomes, neat_config):
 def _run_neat(checkpoint, eval_network, eval_single_genome):
     # Create the population, which is the top-level object for a NEAT run.
     global NUM_WORKERS
-    #NUM_WORKERS = os.cpu_count()
+    NUM_WORKERS = os.cpu_count()
     print_config_info()
 
     if checkpoint is not None:

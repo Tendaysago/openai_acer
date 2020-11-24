@@ -10,24 +10,26 @@ class Species(object):
         self.key = key
         self.created = generation
         self.last_improved = generation
+        self.age = 0
         self.representative = None
         self.members = {}
         self.fitness = None
+        self.best_fitness = None
+        self.single_best_fitnesses = None
         self.adjusted_fitness = None
         self.fitness_history = []
         self.ref_points = None
+        self.best_ref_points = None
+        self.before_ref_points = None
+        self.ref_points_history = []
         self.fitness_weight = None
         self.priority_fitness = None
         self.priority_fitness_history = []
         self.temperature = None
         self.coolrate = None
+        self.saperiod = 1
 
-    def update(self, representative, members, temperature, coolrate):
-        if self.temperature is None and self.coolrate is None:
-            self.temperature = temperature
-            self.coolrate = coolrate
-        else:
-            self.temperature*=self.coolrate
+    def update(self, representative, members):
         self.representative = representative
         self.members = members
 
@@ -75,8 +77,10 @@ class DefaultSpeciesSet(DefaultClassConfig):
         return DefaultClassConfig(param_dict,
                                   [ConfigParameter('compatibility_threshold', float),
                                    ConfigParameter('compatibility_fwthreshold',float,-1.0),
-                                   ConfigParameter('coolrate',float,0.95),
-                                   ConfigParameter('initialsarate', float, 1.00)])
+                                   ConfigParameter('coolrate',float,1.0),
+                                   ConfigParameter('initialsarate', float, 1.00),
+                                   ConfigParameter('saperiod',int,3),
+                                   ConfigParameter('speciesnummax',int,10)])
 
     def speciate(self, config, population, generation):
         """
@@ -94,6 +98,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
         compatibility_fwthreshold = self.species_set_config.compatibility_fwthreshold
         temperature = self.species_set_config.initialsarate
         coolrate = self.species_set_config.coolrate
+        saperiod = self.species_set_config.saperiod
 
 
         # Find the best representatives for each existing species.
@@ -103,6 +108,14 @@ class DefaultSpeciesSet(DefaultClassConfig):
         new_members = {}
         for sid, s in iteritems(self.species):
             candidates = []
+            s.age = generation - s.created
+            if s.temperature is None or s.coolrate is None:
+                s.temperature = temperature
+                s.coolrate = coolrate
+                s.saperiod = saperiod
+            else:
+                if s.age%saperiod==0:
+                    s.temperature*=s.coolrate
             for gid in unspeciated:
                 g = population[gid]
                 d = distances(s.representative, g)
@@ -133,7 +146,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
                 d = distances(rep, g)
                 #if(d<7.0):
                 #    print("species sid:{0}, rid:{1},distance with g:{2}".format(sid,rid,d))
-                if d < compatibility_threshold:
+                if d < compatibility_threshold or len(new_representatives)>=self.species_set_config.speciesnummax:
                     candidates.append((d, sid))
 
             if candidates:
@@ -182,10 +195,11 @@ class DefaultSpeciesSet(DefaultClassConfig):
                 self.genome_to_species[gid] = sid
 
             member_dict = dict((gid, population[gid]) for gid in members)
-            s.update(population[rid], member_dict, temperature, coolrate)
+            s.update(population[rid], member_dict)
 
         gdmean = mean(itervalues(distances.distances))
         gdstdev = stdev(itervalues(distances.distances))
+        self.reporters.genetic_distance(config,gdmean)
         self.reporters.info(
             'Mean genetic distance {0:.3f}, standard deviation {1:.3f}'.format(gdmean, gdstdev))
 

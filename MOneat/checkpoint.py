@@ -39,10 +39,10 @@ class Checkpointer(BaseReporter):
         self.last_generation_checkpoint = -1
         self.last_time_checkpoint = time.time()
 
-    def start_generation(self, generation):
+    def start_generation(self, generation,outpath=None):
         self.current_generation = generation
 
-    def end_generation(self, config, population, species_set, allhistory):
+    def end_generation(self, config, population, species_set, allhistory,outpath):
         checkpoint_due = False
 
         if self.time_interval_seconds is not None:

@@ -156,7 +156,7 @@ def MakeInput(nowRoomID, t):
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
     #input = np.full(24,-1.0,dtype=float)
-    input = np.full(9,-1.0,dtype=float)
+    input = np.full(10,-1.0,dtype=float)
     if(StairsFound):
         input[0]=1.0
     Room = RoomInfoList[nowRoomID]
@@ -229,6 +229,10 @@ def MakeInput(nowRoomID, t):
     input[6]= (20.0-t) / 20.0
     input[7]= Getitemnum/5.0
     input[8]= maxRoomID/5.0
+    if(maxRoomID==0):
+        input[9]=0
+    else:
+        input[9]=1
     return input
                 
 
@@ -1116,7 +1120,7 @@ def checkVisited(playerY,playerX):
     return maxRoomID
 
 def eval_network(net, net_input):
-    assert (len(net_input) == 9)
+    assert (len(net_input) == 10)
     return np.argmax(net.activate(net_input))
 
 

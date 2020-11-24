@@ -171,6 +171,7 @@ class DefaultGenome(object):
 
         # Fitness results.
         self.fitness = None
+        self.pareto_strength = None
         #self.fitness = []
         self.crowding_dist = None
         self.priority_fitness = None

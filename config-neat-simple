@@ -4,7 +4,8 @@ fitness_threshold     = 50
 pop_size              = 80
 reset_on_extinction   = False
 no_fitness_termination= True
-pareto_plot_interval = 10
+output_interval = 5
+outputname = RNSGA2
 
 [DefaultGenome]
 # node activation options
@@ -52,7 +53,7 @@ node_delete_prob         = 0.2
 
 # network parameters
 num_hidden              = 50
-num_inputs              = 9
+num_inputs              = 10
 num_outputs             = 5
 
 # node response options
@@ -74,11 +75,13 @@ weight_mutate_rate      = 0.460
 weight_replace_rate     = 0.0245
 
 [DefaultSpeciesSet]
-compatibility_threshold = 2.8
+compatibility_threshold = 3.0
 #compatibility_threshold = 7.0
 compatibility_fwthreshold = -1.0
-coolrate = 0.98
+coolrate = 0.85
 initialsarate = 1.00
+saperiod = 3
+speciesnummax = 10
 
 [DefaultStagnation]
 species_fitness_func = momean
@@ -96,3 +99,6 @@ dimension = 3
 nsga2threshold = 0.5
 nsga2nd = standard
 first_front_only = False
+outputnetwork_maxnum = 30
+optimization_dir = multi_max
+mix_cluster_rate = 0.15
