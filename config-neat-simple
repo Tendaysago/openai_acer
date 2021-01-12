@@ -4,7 +4,7 @@ fitness_threshold     = 50
 pop_size              = 80
 reset_on_extinction   = False
 no_fitness_termination= True
-output_interval = 5
+output_interval = 20
 outputname = RNSGA2
 
 [DefaultGenome]
@@ -93,8 +93,8 @@ elitism            = 0
 priority_elitism = 0
 survival_threshold = 0.5
 min_species_size = 40
-multi_optimization = RNSGA2
-multi_optimization_indicator = None
+multi_optimization = NSGA2
+multi_optimization_indicator = HV
 dimension = 3
 nsga2threshold = 0.5
 nsga2nd = standard

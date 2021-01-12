@@ -11,20 +11,35 @@ import warnings
 
 import graphviz
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime
 from mpl_toolkits.mplot3d import Axes3D
 
-colors=["red","aqua","green","purple","gray","salmon","blue",\
-    "orange","lime","plum","black"]
+colors = [
+    "red",
+    "aqua",
+    "green",
+    "purple",
+    "gray",
+    "salmon",
+    "blue",
+    "orange",
+    "lime",
+    "plum",
+    "black",
+]
 timestamp = None
 
-def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
+
+def plot_stats(statistics, ylog=False, view=False, filename="avg_fitness.svg"):
     """ Plots the population's average and best fitness. """
     if plt is None:
-        warnings.warn("This display is not available due to a missing optional dependency (matplotlib)")
+        warnings.warn(
+            "This display is not available due to a missing optional dependency (matplotlib)"
+        )
         return
 
     generation = range(len(statistics.most_fit_genomes))
@@ -32,10 +47,10 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
     avg_fitness = np.array(statistics.get_fitness_mean())
     stdev_fitness = np.array(statistics.get_fitness_stdev())
 
-    plt.plot(generation, avg_fitness, 'b-', label="average")
-    plt.plot(generation, avg_fitness - stdev_fitness, 'g-.', label="-1 sd")
-    plt.plot(generation, avg_fitness + stdev_fitness, 'g-.', label="+1 sd")
-    plt.plot(generation, best_fitness, 'r-', label="best")
+    plt.plot(generation, avg_fitness, "b-", label="average")
+    plt.plot(generation, avg_fitness - stdev_fitness, "g-.", label="-1 sd")
+    plt.plot(generation, avg_fitness + stdev_fitness, "g-.", label="+1 sd")
+    plt.plot(generation, best_fitness, "r-", label="best")
 
     plt.title("Population's average and best fitness")
     plt.xlabel("Generations")
@@ -43,7 +58,7 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
     plt.grid()
     plt.legend(loc="best")
     if ylog:
-        plt.gca().set_yscale('symlog')
+        plt.gca().set_yscale("symlog")
 
     plt.savefig(filename)
     if view:
@@ -51,25 +66,34 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
 
     plt.close()
 
-def plot_stats2D(generation, list_data, ylog=False, view=False, ylabel='Hypervolume',filename='plot_name.svg',title='plot_title'):
+
+def plot_stats2D(
+    generation,
+    list_data,
+    ylog=False,
+    view=False,
+    ylabel="Hypervolume",
+    filename="plot_name.svg",
+    title="plot_title",
+):
     """ Plots the population's species pareto front. """
-    plt.figure(figsize=(5,5))
+    plt.figure(figsize=(5, 5))
     plot_x = range(generation)
     plot_y = np.array(list_data)
-    plt.plot(plot_x, plot_y, 'b-')
-    #plt.plot(generation, avg_fitness - stdev_fitness, 'g-.', label="-1 sd")
-    #plt.plot(generation, avg_fitness + stdev_fitness, 'g-.', label="+1 sd")
-    #plt.plot(generation, best_fitness, 'r-', label="best")
+    plt.plot(plot_x, plot_y, "b-")
+    # plt.plot(generation, avg_fitness - stdev_fitness, 'g-.', label="-1 sd")
+    # plt.plot(generation, avg_fitness + stdev_fitness, 'g-.', label="+1 sd")
+    # plt.plot(generation, best_fitness, 'r-', label="best")
     plt.rcParams["font.size"] = 16
     plt.title(title)
     plt.xlabel("Generations")
     plt.ylabel(ylabel)
-    plt.xticks(np.arange(min(plot_x), max(plot_x)+1, 15))
-    plt.ylim(0,max(1,max(plot_y)))
-    #plt.legend(loc="best")
-    #plt.legend(loc="upper left")
+    plt.xticks(np.arange(min(plot_x), max(plot_x) + 1, 15))
+    plt.ylim(0, max(1, max(plot_y)))
+    # plt.legend(loc="best")
+    # plt.legend(loc="upper left")
     if ylog:
-        plt.gca().set_yscale('symlog')
+        plt.gca().set_yscale("symlog")
     plt.subplots_adjust(left=0.1, right=0.95, bottom=0.1, top=0.95)
     plt.tight_layout()
     plt.savefig(filename)
@@ -77,67 +101,82 @@ def plot_stats2D(generation, list_data, ylog=False, view=False, ylabel='Hypervol
         plt.show()
     plt.close()
 
-def plot_stats3D(generation, plot_data, ylog=False, view=False, filename='paretofront_fitness.svg',title='paretofront_plot'):
+
+def plot_stats3D(
+    generation,
+    plot_data,
+    ylog=False,
+    view=False,
+    filename="paretofront_fitness.svg",
+    title="paretofront_plot",
+):
     """ Plots the population's species pareto front. """
-    fig = plt.figure(figsize=(5,5))
+    fig = plt.figure(figsize=(5, 5))
     ax = Axes3D(fig)
-    ax.set_xlabel("Down stairs success/10.0")
+    ax.set_xlabel("Down stairs/10.0")
     ax.set_ylabel("Find Roomnum/5.0")
     ax.set_zlabel("Pick item num/5.0")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_zlim(0, 1)
-    #generation = len(statistics.most_fit_genomes)
-    #paretofront_fitness = [c.fitness for c in statistics.most_fit_genomes]
-    #paretofront_fitness = statistics.species_now_all_fitness
+    # generation = len(statistics.most_fit_genomes)
+    # paretofront_fitness = [c.fitness for c in statistics.most_fit_genomes]
+    # paretofront_fitness = statistics.species_now_all_fitness
     paretofront_fitness = plot_data
-    #print(paretofront_fitness)
-    #print(len(paretofront_fitness[0]))
-    #print(len(paretofront_fitness[0][0]))
-    #print(len(paretofront_fitness[0][0][1]))
-    #assert(len(paretofront_fitness[0][0][1])==3)
-    speciesnum=0
-    #for sidx in range(len(paretofront_fitness[0])):
+    # print(paretofront_fitness)
+    # print(len(paretofront_fitness[0]))
+    # print(len(paretofront_fitness[0][0]))
+    # print(len(paretofront_fitness[0][0][1]))
+    # assert(len(paretofront_fitness[0][0][1])==3)
+    speciesnum = 0
+    # for sidx in range(len(paretofront_fitness[0])):
     for front in paretofront_fitness:
-        #print(front)
-        #if(len(colors)<=speciesnum):
+        # if(len(colors)<=speciesnum):
         #    break
-        #if(len(paretofront_fitness[0][sidx])==0):
+        # if(len(paretofront_fitness[0][sidx])==0):
         #    continue
-        #print(paretofront_fitness[0][sidx])
-        #X = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
-        #Y = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
-        #Z = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
-        X = np.zeros(len(front),dtype=float)
-        Y = np.zeros(len(front),dtype=float)
-        Z = np.zeros(len(front),dtype=float)
-        fidx=0
-        #for fitness in paretofront_fitness[0][sidx].values():
+        # print(paretofront_fitness[0][sidx])
+        # X = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        # Y = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        # Z = np.zeros(len(paretofront_fitness[0][sidx]),dtype=float)
+        X = np.zeros(len(front), dtype=float)
+        Y = np.zeros(len(front), dtype=float)
+        Z = np.zeros(len(front), dtype=float)
+        fidx = 0
+        # for fitness in paretofront_fitness[0][sidx].values():
         #    X[fidx]=fitness[0]
         #    Y[fidx]=fitness[1]
         #    Z[fidx]=fitness[2]
         #    fidx+=1
         for sidx in range(len(front)):
             fitness = front[sidx]
-            X[fidx]=fitness[0]
-            Y[fidx]=fitness[1]
-            Z[fidx]=fitness[2]
-            fidx+=1
-        if(len(front)!=0 and speciesnum<len(colors)):
-            ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="Group "+str(speciesnum+1))
-            speciesnum+=1
-        #print(X)
-        #print(Y)
-        #print(Z)
-        #ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="species "+str(speciesnum+1))
-        #speciesnum+=1
-    ax.legend(loc=2, title='species', shadow=True)
-    #plt.title("Generation " + str(generation) + filename)
+            X[fidx] = fitness[0]
+            Y[fidx] = fitness[1]
+            Z[fidx] = fitness[2]
+            fidx += 1
+        if len(front) != 0 and speciesnum < len(colors):
+            ax.plot(
+                X,
+                Y,
+                Z,
+                marker="o",
+                linestyle="None",
+                color=colors[speciesnum],
+                label="Rank " + str(speciesnum + 1),
+            )
+            speciesnum += 1
+        # print(X)
+        # print(Y)
+        # print(Z)
+        # ax.plot(X,Y,Z,marker="o", linestyle="None",color=colors[speciesnum],label="species "+str(speciesnum+1))
+        # speciesnum+=1
+    # ax.legend(loc="lower left", title="Pareto front rank", shadow=True)
+    # ax.legend(loc="lower left", title="Pareto front rank", shadow=True)
+    # plt.title("Generation " + str(generation) + filename)
     plt.title(title)
-    #filename= timestamp + filename + "_gen_"+ str(generation)+".png"
+    # filename= timestamp + filename + "_gen_"+ str(generation)+".png"
     plt.savefig(filename)
     plt.close()
-
 
 
 def plot_spikes(spikes, view=False, filename=None, title=None):
@@ -189,10 +228,12 @@ def plot_spikes(spikes, view=False, filename=None, title=None):
     return fig
 
 
-def plot_species(statistics, view=False, filename='speciation.svg'):
+def plot_species(statistics, view=False, filename="speciation.svg"):
     """ Visualizes speciation throughout evolution. """
     if plt is None:
-        warnings.warn("This display is not available due to a missing optional dependency (matplotlib)")
+        warnings.warn(
+            "This display is not available due to a missing optional dependency (matplotlib)"
+        )
         return
 
     plt.ioff()
@@ -216,12 +257,23 @@ def plot_species(statistics, view=False, filename='speciation.svg'):
     plt.close()
 
 
-def draw_net(config, genome, view=False, filename=None, node_names=None, show_disabled=True, prune_unused=False,
-             node_colors=None, fmt='svg'):
+def draw_net(
+    config,
+    genome,
+    view=False,
+    filename=None,
+    node_names=None,
+    show_disabled=True,
+    prune_unused=False,
+    node_colors=None,
+    fmt="svg",
+):
     """ Receives a genome and draws a neural network with arbitrary topology. """
     # Attributes for network nodes.
     if graphviz is None:
-        warnings.warn("This display is not available due to a missing optional dependency (graphviz)")
+        warnings.warn(
+            "This display is not available due to a missing optional dependency (graphviz)"
+        )
         return
 
     if node_names is None:
@@ -234,11 +286,7 @@ def draw_net(config, genome, view=False, filename=None, node_names=None, show_di
 
     assert type(node_colors) is dict
 
-    node_attrs = {
-        'shape': 'circle',
-        'fontsize': '9',
-        'height': '0.2',
-        'width': '0.2'}
+    node_attrs = {"shape": "circle", "fontsize": "9", "height": "0.2", "width": "0.2"}
 
     dot = graphviz.Digraph(format=fmt, node_attr=node_attrs)
 
@@ -246,17 +294,16 @@ def draw_net(config, genome, view=False, filename=None, node_names=None, show_di
     for k in config.genome_config.input_keys:
         inputs.add(k)
         name = node_names.get(k, str(k))
-        input_attrs = {'style': 'filled',
-                       'shape': 'box'}
-        input_attrs['fillcolor'] = node_colors.get(k, 'lightgray')
+        input_attrs = {"style": "filled", "shape": "box"}
+        input_attrs["fillcolor"] = node_colors.get(k, "lightgray")
         dot.node(name, _attributes=input_attrs)
 
     outputs = set()
     for k in config.genome_config.output_keys:
         outputs.add(k)
         name = node_names.get(k, str(k))
-        node_attrs = {'style': 'filled'}
-        node_attrs['fillcolor'] = node_colors.get(k, 'lightblue')
+        node_attrs = {"style": "filled"}
+        node_attrs["fillcolor"] = node_colors.get(k, "lightblue")
 
         dot.node(name, _attributes=node_attrs)
 
@@ -282,21 +329,22 @@ def draw_net(config, genome, view=False, filename=None, node_names=None, show_di
         if n in inputs or n in outputs:
             continue
 
-        attrs = {'style': 'filled',
-                 'fillcolor': node_colors.get(n, 'white')}
+        attrs = {"style": "filled", "fillcolor": node_colors.get(n, "white")}
         dot.node(str(n), _attributes=attrs)
 
     for cg in genome.connections.values():
         if cg.enabled or show_disabled:
-            #if cg.input not in used_nodes or cg.output not in used_nodes:
+            # if cg.input not in used_nodes or cg.output not in used_nodes:
             #    continue
             input, output = cg.key
             a = node_names.get(input, str(input))
             b = node_names.get(output, str(output))
-            style = 'solid' if cg.enabled else 'dotted'
-            color = 'green' if cg.weight > 0 else 'red'
+            style = "solid" if cg.enabled else "dotted"
+            color = "green" if cg.weight > 0 else "red"
             width = str(0.1 + abs(cg.weight / 5.0))
-            dot.edge(a, b, _attributes={'style': style, 'color': color, 'penwidth': width})
+            dot.edge(
+                a, b, _attributes={"style": style, "color": color, "penwidth": width}
+            )
 
     dot.render(filename, view=view)
 

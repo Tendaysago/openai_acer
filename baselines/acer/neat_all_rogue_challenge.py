@@ -15,7 +15,6 @@ import os
 import argparse
 import pickle
 from rogueinabox_lib.parser import RogueParser
-from itertools import count, chain
 
 RB = None
 RBParser = None
@@ -25,9 +24,7 @@ ESC = chr(27)
 STAR = chr(30)
 dx = [0, 1, 0, -1]
 dy = [-1, 0, 1, 0]
-diagonalx = [-1, 1, 1, -1]
-diagonaly = [-1, -1, 1, 1]
-command = ["k", "l", "j", "h", "y", "u", "n", "b"]
+command = ["k", "l", "j", "h"]
 atoz = [
     "a",
     "b",
@@ -68,47 +65,11 @@ ExploreActnum = 0
 PrevAct = -1
 Getitemnum = 0
 Defeatmonsnum = 0
-stepcnt = 0
 VisitedRoom = None
 StairsFound = False
 ExploreStack = False
 GlobalStackCheck = False
 demoplay_mode = False
-now_inventory = None
-enemy_offence_mean_list = [
-    2.4,
-    2.6,
-    3.0,
-    3.5,
-    4.1,
-    4.4,
-    5.2,
-    5.7,
-    6.0,
-    6.6,
-    6.6,
-    8.5,
-    8.7,
-    9.5,
-    10.0,
-]
-enemy_level_mean_list = [
-    1.0,
-    1.0,
-    1.2,
-    1.2,
-    1.4,
-    1.8,
-    2.4,
-    2.6,
-    2.8,
-    3.0,
-    3.2,
-    4.0,
-    4.6,
-    5.2,
-    6.2,
-]
 
 
 class RoomInfo:
@@ -187,13 +148,11 @@ def RoomObjectSearch(screen, leftup, rightbottom, obj):
     return ret
 
 
-def PickupSearch(nowRoomID, playery, playerx):
+def PickupSearch(nowRoomID):
     global RoomInfoList
     # room = RoomInfoList[nowRoomID]
     leftup = RoomInfoList[nowRoomID].leftup
     rightbottom = RoomInfoList[nowRoomID].rightbottom
-    while wrongscreen():
-        screen_refresh()
     screen = RB.get_screen()
     RoomInfoList[nowRoomID].itemList = []
     for y in range(leftup[0], rightbottom[0]):
@@ -205,40 +164,41 @@ def PickupSearch(nowRoomID, playery, playerx):
                 or screen[y][x] == ")"
                 or screen[y][x] == "*"
                 or screen[y][x] == ":"
-                or screen[y][x] == ","
             ):
                 RoomInfoList[nowRoomID].itemList.append((y, x, screen[y][x]))
-    RoomInfoList[nowRoomID].itemList.sort(
-        key=lambda x: math.sqrt(((playery - x[0]) ** 2) + ((playerx - x[1]) ** 2))
-    )
 
-
-def MonsterSearch(nowRoomID):
-    global RoomInfoList
-    monsternum = 0
-    # room = RoomInfoList[nowRoomID]
-    leftup = RoomInfoList[nowRoomID].leftup
-    rightbottom = RoomInfoList[nowRoomID].rightbottom
-    if RB.game_over():
-        return 0
-    while wrongscreen():
-        screen_refresh()
-    screen = RB.get_screen()
-    for y in range(leftup[0], rightbottom[0]):
-        for x in range(leftup[1], rightbottom[1]):
-            if screen[y][x].isupper() is True:
-                monsternum += 1
-    return monsternum
-
+def CheckInventory():
+    RB.send_command("i", check_inventory=True)
 
 def CheckFoodnum():
-    global now_inventory
-    now_inventory = CheckInventory()
-    foodnum = 0
-    if "food" in now_inventory.keys():
-        foodnum = now_inventory["food"]["num"]
+    global Foodidx
+    RB.send_command("e")
     # print("NowFoodNum: {0}".format(RB.FoodNum))
-    return foodnum
+    return RB.FoodNum
+    """
+    sleep(0.01)
+    RB._update_screen()
+    screen=RB.get_screen()
+    Screenprint(screen)
+    sleep(0.04)
+    RB.pipe.write(STAR.encode())
+    RB._update_screen()
+    screen=RB.get_screen()
+    Screenprint(screen)
+    for y in range(len(screen)):
+        if('food' in screen[y]):
+            Foodidx=atoz[y]
+            if('Some' in screen[y]):
+                RB.pipe.write(' '.encode())
+                RB.pipe.write(ESC.encode())
+                return 1
+            RB.pipe.write(' '.encode())
+            RB.pipe.write(ESC.encode())
+            return int(re.sub("\\D","",screen[y]))
+    RB.pipe.write(' '.encode())
+    RB.pipe.write(ESC.encode())
+    return 0
+    """
 
 
 def EatFood():
@@ -256,290 +216,11 @@ def EatFood():
     RB.send_command("e")
 
 
-def IntelisenseItemuse(dir=-1, enemynum=0, priority="None"):
-    global now_inventory
-    global FrameInfo
-    while wrongscreen():
-        screen_refresh()
-    now_inventory = CheckInventory()
-    screen = RB.get_screen()
-    while wrongscreen():
-        screen_refresh()
-    if RB.game_over():
-        return False
-    PCnowHP = FrameInfo.statusbar["current_hp"]
-    PCmaxHP = FrameInfo.statusbar["max_hp"]
-    PCnowstate = FrameInfo.statusbar["pc_status"]
-    if priority == "Heal":
-        if "extra" in now_inventory.keys():
-            RB.send_command("q" + now_inventory["extra"]["key_val"])
-            return True
-        if "healng" in now_inventory.keys():
-            RB.send_command("q" + now_inventory["healing"]["key_val"])
-            return True
-    if priority == "Overdo":
-        if "teleport" in now_inventory.keys():
-            RB.send_command("z" + command[dir] + now_inventory["teleport"]["key_val"])
-            return True
-    if priority == "Weak":
-        if "slow" in now_inventory.keys():
-            RB.send_command("z" + command[dir] + now_inventory["slow"]["key_val"])
-            return True
-    if priority == "Powerup":
-        if "haste" in now_inventory.keys() and PCnowstate == "Normal":
-            RB.send_command("q" + now_inventory["haste"]["key_val"])
-            return True
-    if priority == "Use":
-        canuse = False
-        if "healing" in now_inventory.keys():
-            if now_inventory["healing"]["num"] >= 3 and PCnowHP == PCmaxHP:
-                RB.send_command("q" + now_inventory["healing"]["key_val"])
-                canuse = True
-        if "extra" in now_inventory.keys():
-            if now_inventory["extra"]["num"] >= 4 and PCnowHP == PCmaxHP:
-                RB.send_command("q" + now_inventory["extra"]["key_val"])
-                canuse = True
-        if "strength" in now_inventory.keys():
-            RB.send_command("q" + now_inventory["strength"]["key_val"])
-            canuse = True
-        if "weapon" in now_inventory.keys():
-            RB.send_command("r" + now_inventory["weapon"]["key_val"])
-            canuse = True
-        if "armor" in now_inventory.keys():
-            RB.send_command("r" + now_inventory["armor"]["key_val"])
-            canuse = True
-        if "food" in now_inventory.keys():
-            if now_inventory["food"]["num"] >= 5:
-                RB.send_command("e" + now_inventory["food"]["key_val"])
-                canuse = True
-        return canuse
-    if priority == "Eat":
-        canuse = False
-        if "Food" in now_inventory.keys():
-            RB.send_command("e" + now_inventory["Food"]["key_val"])
-            canuse = True
-        return canuse
-
-    return False
-
-
-def IntelisenseFight(enemy_dir, diagonal=False):
-    global FrameInfo
-    if RB.game_over():
-        return RB.game_over()
-    while wrongscreen():
-        screen_refresh()
-    screen = RB.get_screen()
-    FrameInfo = RBParser.parse_screen(screen)
-    PlayerY, PlayerX = FrameInfo.get_player_pos()
-    PlayerY += 1
-    if demoplay_mode is True:
-        Screenprint(screen)
-        sleep(0.05)
-    enenum = Approachenemynum(PlayerY, PlayerX, diagonal)
-    PCnowHP = FrameInfo.statusbar["current_hp"]
-    PCmaxHP = FrameInfo.statusbar["max_hp"]
-    if enenum >= 2:
-        if IntelisenseItemuse(enemy_dir, enenum, "Overdo") is False:
-            if IntelisenseItemuse(enemy_dir, enenum, "Powerup") is False:
-                RB.send_command(command[enemy_dir])
-        if PCnowHP <= (PCmaxHP / 2):
-            IntelisenseItemuse(-1, 0, priority="Heal")
-    elif PCnowHP <= (PCmaxHP / 2):
-        IntelisenseItemuse(-1, 0, priority="Heal")
-        RB.send_command(command[enemy_dir])
-    else:
-        if PCnowHP <= (PCmaxHP / 2):
-            IntelisenseItemuse(-1, 0, priority="Heal")
-        print("Attack command : {0}".format(command[enemy_dir]))
-        RB.send_command(command[enemy_dir])
-    screen = RB.get_screen()
-    if demoplay_mode is True:
-        Screenprint(screen)
-        sleep(0.05)
-    return RB.game_over()
-
-
-def CloseCombatinpassage():
-    global FrameInfo
-    while True:
-        if RB.game_over():
-            return RB.game_over()
-        while wrongscreen():
-            screen_refresh()
-        screen = RB.get_screen()
-        FrameInfo = RBParser.parse_screen(screen)
-        PlayerY, PlayerX = FrameInfo.get_player_pos()
-        PlayerY += 1
-        fightcontinue = False
-        for dir in range(4):
-            if screen[PlayerY + dy[dir]][PlayerX + dx[dir]].isupper():
-                print("Combat in Passage!")
-                IntelisenseFight(dir)
-                fightcontinue = True
-                break
-        if fightcontinue is False or RB.game_over():
-            break
-    return RB.game_over()
-
-
-def CloseCombatinroom(nowRoomID):
-    global now_inventory
-    if RB.game_over():
-        return RB.game_over()
-    while wrongscreen():
-        screen_refresh()
-    if MonsterSearch(nowRoomID) == 0:
-        return RB.game_over()
-    screen = RB.get_screen()
-    FrameInfo = RBParser.parse_screen(screen)
-    PlayerY, PlayerX = FrameInfo.get_player_pos()
-    PlayerY += 1
-
-    doorretreat = -1
-    for dir in range(4):
-        if screen[PlayerY + dy[dir]][PlayerX + dx[dir]] == "+":
-            RB.send_command(command[dir])
-            doorretreat = (dir + 2) % 4
-            break
-    if RB.game_over():
-        return RB.game_over()
-    while wrongscreen():
-        screen_refresh()
-    screen = RB.get_screen()
-    FrameInfo = RBParser.parse_screen(screen)
-    PlayerY, PlayerX = FrameInfo.get_player_pos()
-    PlayerY += 1
-    if doorretreat != -1 or FrameInfo.get_tile_below_player() == "+":
-        while MonsterSearch(nowRoomID) > 0 or Approachenemynum(PlayerY, PlayerX) > 0:
-            if RB.game_over():
-                return RB.game_over()
-            print("Combat in Room! (on door)")
-            while Approachenemynum(PlayerY, PlayerX) == 0:
-                if RB.game_over():
-                    return RB.game_over()
-                while wrongscreen():
-                    screen_refresh()
-                screen = RB.get_screen()
-                RB.send_command(".")
-                if demoplay_mode is True:
-                    Screenprint(screen)
-                    sleep(0.05)
-            while wrongscreen():
-                screen_refresh()
-            screen = RB.get_screen()
-            if demoplay_mode is True:
-                Screenprint(screen)
-                sleep(0.05)
-            fightcontinue = False
-            for dir in range(4):
-                if screen[PlayerY + dy[dir]][PlayerX + dx[dir]].isupper():
-                    print("Attack!")
-                    if demoplay_mode is True:
-                        Screenprint(screen)
-                        sleep(0.05)
-                    IntelisenseFight(dir)
-                    fightcontinue = True
-                    break
-            if fightcontinue is False or RB.game_over():
-                break
-            if RB.game_over is True:
-                break
-    else:
-        while (
-            MonsterSearch(nowRoomID) > 0
-            or Approachenemynum(PlayerY, PlayerX, diagonal=True) > 0
-        ):
-            print(MonsterSearch(nowRoomID))
-            print(Approachenemynum(PlayerY, PlayerX))
-            if RB.game_over():
-                return RB.game_over()
-            print("Combat in Room!")
-            while Approachenemynum(PlayerY, PlayerX, diagonal=True) == 0:
-                if RB.game_over():
-                    return RB.game_over()
-                while wrongscreen():
-                    screen_refresh()
-                screen = RB.get_screen()
-                RB.send_command(".")
-                if demoplay_mode is True:
-                    Screenprint(screen)
-                    sleep(0.05)
-            while wrongscreen():
-                screen_refresh()
-            screen = RB.get_screen()
-            if demoplay_mode is True:
-                Screenprint(screen)
-                sleep(0.05)
-            fightcontinue = False
-            for dir in range(4):
-                if screen[PlayerY + dy[dir]][PlayerX + dx[dir]].isupper():
-                    print("Attack!")
-                    if demoplay_mode is True:
-                        Screenprint(screen)
-                        sleep(0.05)
-                    IntelisenseFight(dir)
-                    fightcontinue = True
-                if (
-                    screen[PlayerY + dy[dir]][PlayerX + dx[dir]] != "-"
-                    and screen[PlayerY + dy[dir]][PlayerX + dx[dir]] != "|"
-                ):
-                    for diadir in range(2):
-                        if screen[PlayerY + diagonaly[(dir + diadir) % 4]][
-                            PlayerX + diagonalx[(dir + diadir) % 4]
-                        ].isupper():
-                            print("Attack!")
-                            if demoplay_mode is True:
-                                Screenprint(screen)
-                                sleep(0.05)
-                            if dir + diadir + 4 < 8:
-                                IntelisenseFight(dir + diadir + 4)
-                            else:
-                                IntelisenseFight(dir + diadir)
-                            fightcontinue = True
-            if fightcontinue is False or RB.game_over():
-                break
-            if RB.game_over is True:
-                break
-    if doorretreat != -1:
-        RB.send_command(command[doorretreat])
-
-    return RB.game_over()
-
-
-def Approachenemynum(py, px, diagonal=False):
-    enemynum = 0
-    while wrongscreen():
-        screen_refresh()
-    screen = RB.get_screen()
-    for dir in range(4):
-        if screen[py + dy[dir]][px + dx[dir]].isupper():
-            enemynum += 1
-        if (
-            diagonal is True
-            and screen[py + dy[dir]][px + dx[dir]] != "-"
-            and screen[py + dy[dir]][px + dx[dir]] != "|"
-        ):
-            for diadir in range(2):
-                if screen[py + diagonaly[(dir + diadir) % 4]][
-                    px + diagonalx[(dir + diadir) % 4]
-                ].isupper():
-                    enemynum += 1
-    return enemynum
-
-
-def CheckInventory():
-    return RB.send_command("i", check_inventory=True)
-
-
 def MakeInput(nowRoomID, t):
     global FrameInfo
     global FoodNum
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
-    while wrongscreen():
-        screen_refresh()
-    screen = RB.get_screen()
     # input = np.full(24,-1.0,dtype=float)
     input = np.full(10, -1.0, dtype=float)
     if StairsFound:
@@ -551,22 +232,25 @@ def MakeInput(nowRoomID, t):
     for d in range(len(Room.doorlist)):
         if not Room.doorlist[d].visited:
             input[1] = 1.0
-        if Room.doorlist[d].useless == False and len(Room.doorlist[d].passagelist) > 0:
-            nxtroom = RoomInfoList[Room.doorlist[d].passagelist[0].connectroomid]
-            for nd in range(len(nxtroom.doorlist)):
-                if not nxtroom.doorlist[nd].visited:
-                    input[2] = 1.0
-            if nxtroom.stairsRoomdis != 100:
-                input[3] = min(input[3], nxtroom.stairsRoomdis / 6.0)
+            if (
+                Room.doorlist[d].useless == False
+                and len(Room.doorlist[d].passagelist) > 0
+            ):
+                nxtroom = RoomInfoList[Room.doorlist[d].passagelist[0].connectroomid]
+                for nd in range(len(nxtroom.doorlist)):
+                    if not nxtroom.doorlist[nd].visited:
+                        input[2] = 1.0
+                if nxtroom.stairsRoomdis != 100:
+                    input[3] = min(input[3], nxtroom.stairsRoomdis / 6.0)
     if input[3] == 100:
         input[3] = 1.0
     objnum += RoomObjectSearch(screen, Room.leftup, Room.rightbottom, ":")
     objnum += RoomObjectSearch(screen, Room.leftup, Room.rightbottom, "!")
     objnum += RoomObjectSearch(screen, Room.leftup, Room.rightbottom, "?")
     objnum += RoomObjectSearch(screen, Room.leftup, Room.rightbottom, ")")
+    # objnum+=RoomObjectSearch(screen,Room.leftup,Room.rightbottom,'monster')
     objnum += RoomObjectSearch(screen, Room.leftup, Room.rightbottom, "*")
-    objnum += RoomObjectSearch(screen, Room.leftup, Room.rightbottom, "/")
-    objnum += RoomObjectSearch(screen, Room.leftup, Room.rightbottom, ",")
+    # input[20]= 1 if objnum>0 else 0
     input[4] = 1 if objnum > 0 else 0
     input[5] = CheckFoodnum()
     FoodNum = input[5]
@@ -574,6 +258,7 @@ def MakeInput(nowRoomID, t):
         input[5] = 0.5
     elif input[5] > 1:
         input[5] = 1.0
+    # input[23]= (20.0-t) / 20.0
     input[6] = (20.0 - t) / 20.0
     input[7] = Getitemnum / 5.0
     input[8] = maxRoomID / 5.0
@@ -581,28 +266,6 @@ def MakeInput(nowRoomID, t):
         input[9] = 0
     else:
         input[9] = 1
-    return input
-
-
-def MakecommanderInput(nowRoomID, t, prevmodular):
-    global FrameInfo
-    global FoodNum
-    screen = RB.get_screen()
-    FrameInfo = RBParser.parse_screen(screen)
-    while wrongscreen():
-        screen_refresh()
-    input = np.full(5, -1.0, dtype=float)
-    if StairsFound:
-        input[0] = 1.0
-    input[1] = FrameInfo.statusbar["exp_level"] / 15.0
-    input[2] = FrameInfo.statusbar["dungeon_level"] / 15.0
-    inventory = CheckInventory()
-    for key, val in inventory:
-        input[3] += val
-    input[3] /= 20.0
-    input[4] = (
-        enemy_offence_mean_list[(FrameInfo.statusbar["dungeon_level"] - 1)] / 10.0
-    )
     return input
 
 
@@ -661,14 +324,11 @@ def RoominfoPrint(nowRoomID):
     Screenprint(screen)
 
 
-def StairsCheck(nowRoomID):
+def StairsCheck(screen, nowRoomID):
     global FrameInfo
     global StairsFound
-    while wrongscreen():
-        screen_refresh()
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
-
     if not StairsFound and FrameInfo.get_list_of_positions_by_tile("%") != []:
         StairsFound = True
         RoomInfoList[nowRoomID].stairexisted = True
@@ -691,9 +351,6 @@ def Screenprint(screen):
 def RoomInfoMake(PlayerY, PlayerX, screen, nowRoomID, returnPassage):
     global RoomInfoList
     global VisitedRoom
-    while wrongscreen():
-        screen_refresh()
-    screen = RB.get_screen()
     if VisitedRoom[nowRoomID] == False:
         # print("Room id {0} is New Room! Get LeftUp and RightBottom and doorlist!".format(nowRoomID))
         RoomInfoList[nowRoomID].leftup = getleftup(PlayerY, PlayerX, screen)
@@ -723,12 +380,13 @@ def RightMethod(playery, playerx):
     prevdir = -1
     CanNext = False
     CanThrough = False
-    if RB.game_over():
-        return [], -1, -1, -1
-    while wrongscreen():
-        screen_refresh()
+    screen_refresh()
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
+    if FrameInfo.get_player_pos() == None:
+        screen_refresh()
+        screen = RB.get_screen()
+        FrameInfo = RBParser.parse_screen(screen)
     PlayerY, PlayerX = playery, playerx
     # PlayerY+=1
     stackcheck = 0
@@ -739,11 +397,10 @@ def RightMethod(playery, playerx):
     # 扉からの最初の一歩
     dir = 0
     i = 0
+    if FrameInfo.get_tile_below_player() != "+":
+        return [], -1, -1
     while passage == [] and FrameInfo.get_tile_below_player() == "+":
-        if RB.game_over():
-            return [], -1, -1, -1
-        while wrongscreen():
-            screen_refresh()
+        screen_refresh()
         screen = RB.get_screen()
         FrameInfo = RBParser.parse_screen(screen)
         i += 1
@@ -751,7 +408,7 @@ def RightMethod(playery, playerx):
             print("Warning! below_player tile is not door!")
             Screenprint(screen)
         if RB.game_over():
-            return [], -1, -1, -1
+            return [], -1, -1
         for dir in range(4):
             if (
                 screen[PlayerY + dy[dir]][PlayerX + dx[dir]] == "#"
@@ -764,14 +421,11 @@ def RightMethod(playery, playerx):
                 passage.append(dir)
                 break
             elif screen[PlayerY + dy[dir]][PlayerX + dx[dir]].isupper():
-                # RB.send_command(command[dir])
-                CloseCombatinpassage()
+                RB.send_command(command[dir])
                 screen = RB.get_screen()
-                FrameInfo = RBParser.parse_screen(screen)
-                prevdir = dir
                 # Screenprint(screen)
                 if RB.game_over():
-                    return [], -1, -1, -1
+                    return [], -1, -1
                 # debug_print(0,0)
                 FrameInfo = RBParser.parse_screen(screen)
                 break
@@ -799,10 +453,10 @@ def RightMethod(playery, playerx):
                 break
     while True:
         if RB.game_over() == True:
-            return [], -1, -1, -1
+            return [], -1, -1
         if stackcheck >= 200 and stack == False:
             stack = True
-            print("Warning, Maybe Stack.")
+            # print("Warning, Maybe Stack.")
             screen = RB.get_screen()
             # Screenprint(screen)
             # print(passage)
@@ -812,18 +466,17 @@ def RightMethod(playery, playerx):
         stackcheck += 1
         CanNext = False
         CanContinue = False
-        """
         screen_refresh()
         screen = RB.get_screen()
         FrameInfo = RBParser.parse_screen(screen)
-        """
-        if RB.game_over() is True:
-            return [], -1, -1, -1
+        if RB.game_over() == True:
+            return [], -1, -1
         # Screenprint(screen)
-        while wrongscreen():
+        if FrameInfo.get_player_pos() == None:
+            # print("Warning! player_pos type is NoneType!")
             screen_refresh()
-        screen = RB.get_screen()
-        FrameInfo = RBParser.parse_screen(screen)
+            screen = RB.get_screen()
+            FrameInfo = RBParser.parse_screen(screen)
         if demoplay_mode:
             Screenprint(screen)
             sleep(0.05)
@@ -841,21 +494,19 @@ def RightMethod(playery, playerx):
         # sleep(0.2)
         if screen[PlayerY + dy[rightcommand]][PlayerX + dx[rightcommand]].isupper():
             CanNext = True
-            CloseCombatinpassage()
-            # RB.send_command(command[rightcommand])
+            RB.send_command(command[rightcommand])
             continue
         RB.send_command(command[rightcommand])
-        """
         screen_refresh()
         screen = RB.get_screen()
         FrameInfo = RBParser.parse_screen(screen)
-        """
-        if RB.game_over():
-            return [], -1, -1, -1
-        while wrongscreen():
+        if FrameInfo.get_player_pos() == None:
+            # print("Warning! player_pos type is NoneType!")
             screen_refresh()
-        screen = RB.get_screen()
-        FrameInfo = RBParser.parse_screen(screen)
+            screen = RB.get_screen()
+            FrameInfo = RBParser.parse_screen(screen)
+            if RB.game_over():
+                return [], -1, -1
         AfterY, AfterX = FrameInfo.get_player_pos()
         AfterY += 1
         if AfterY == (BeforeY + dy[rightcommand]) and AfterX == (
@@ -875,21 +526,21 @@ def RightMethod(playery, playerx):
         if CanNext == False and CanThrough == False:
             if screen[PlayerY + dy[frontcommand]][PlayerX + dx[frontcommand]].isupper():
                 CanNext = True
-                CloseCombatinpassage()
-                # RB.send_command(command[frontcommand])
+                RB.send_command(command[frontcommand])
                 continue
             RB.send_command(command[frontcommand])
-            """
             screen_refresh()
             screen = RB.get_screen()
             FrameInfo = RBParser.parse_screen(screen)
-            """
-            if RB.game_over():
-                return [], -1, -1, -1
-            while wrongscreen():
+            if FrameInfo.get_player_pos() == None:
+                # print("Warning! player_pos type is NoneType!")
+                # print(len(screen),len(screen[0]))
+                # Screenprint(screen)
                 screen_refresh()
-            screen = RB.get_screen()
-            FrameInfo = RBParser.parse_screen(screen)
+                screen = RB.get_screen()
+                FrameInfo = RBParser.parse_screen(screen)
+                if RB.game_over():
+                    return [], -1, -1
             AfterY, AfterX = FrameInfo.get_player_pos()
             AfterY += 1
             # print(FrameInfo.get_tile_below_player())
@@ -910,20 +561,21 @@ def RightMethod(playery, playerx):
         if CanNext == False and CanThrough == False:
             if screen[PlayerY + dy[leftcommand]][PlayerX + dx[leftcommand]].isupper():
                 CanNext = True
-                CloseCombatinpassage()
-                # RB.send_command(command[leftcommand])
+                RB.send_command(command[leftcommand])
                 continue
             RB.send_command(command[leftcommand])
-            """
             screen_refresh()
             screen = RB.get_screen()
             FrameInfo = RBParser.parse_screen(screen)
-            """
-            if RB.game_over():
-                return [], -1, -1, -1
-            while wrongscreen():
+            if FrameInfo.get_player_pos() == None:
+                # print("Warning! player_pos type is NoneType!")
+                # print(len(screen),len(screen[0]))
+                # Screenprint(screen)
                 screen_refresh()
-            screen = RB.get_screen()
+                screen = RB.get_screen()
+                FrameInfo = RBParser.parse_screen(screen)
+                if RB.game_over():
+                    return [], -1, -1
             AfterY, AfterX = FrameInfo.get_player_pos()
             AfterY += 1
             # print(FrameInfo.get_tile_below_player())
@@ -943,54 +595,56 @@ def RightMethod(playery, playerx):
                 continue
         if CanThrough:
             # print("CanThrough!")
-            """
             screen_refresh()
             screen = RB.get_screen()
             FrameInfo = RBParser.parse_screen(screen)
-            """
             # Screenprint(screen)
             # print("Passage: {0}".format(passage))
             # print("-----------")
-            if RB.game_over():
-                return [], -1, -1, -1
-            while wrongscreen():
+            if FrameInfo.get_player_pos() == None:
                 screen_refresh()
-            screen = RB.get_screen()
-            FrameInfo = RBParser.parse_screen(screen)
+                screen = RB.get_screen()
+                Screenprint(screen)
+                if RB.game_over():
+                    return [], -1, -1
             AfterY, AfterX = FrameInfo.get_player_pos()
             AfterY += 1
-            # RB.send_command(command[prevdir])
+            RB.send_command(command[prevdir])
             screen_refresh()
             screen = RB.get_screen()
             FrameInfo = RBParser.parse_screen(screen)
-            if RB.game_over():
-                return [], -1, -1
-            while wrongscreen():
+            if FrameInfo.get_player_pos() == None:
                 screen_refresh()
-            # LastY, LastX = FrameInfo.get_player_pos()
-            LastY, LastX = AfterY + dy[prevdir], AfterX + dx[prevdir]
-            # print("And throwing door to enter room.")
-            return passage, AfterY, AfterX, prevdir
-            while LastY == AfterY and LastX == AfterX:
-                print(
-                    "LastY:{0}, LastX:{1}, AfterY:{2}, AfterY:{3}".format(
-                        LastY, LastX, AfterY, AfterX
-                    )
-                )
                 screen = RB.get_screen()
                 FrameInfo = RBParser.parse_screen(screen)
+                Screenprint(screen)
                 if RB.game_over():
-                    return [], -1, -1, -1
-                while wrongscreen():
+                    return [], -1, -1
+            LastY, LastX = FrameInfo.get_player_pos()
+            LastY += 1
+            # print("And throwing door to enter room.")
+            while LastY == AfterY and LastX == AfterX:
+                # print("LastY:{0}, LastX:{1}, AfterY:{2}, AfterY:{3}".format(LastY,LastX,AfterY, AfterX))
+                screen = RB.get_screen()
+                FrameInfo = RBParser.parse_screen(screen)
+                if FrameInfo.get_player_pos() == None:
+                    # print("Warning! player_pos type is NoneType!")
                     screen_refresh()
+                    screen = RB.get_screen()
+                    FrameInfo = RBParser.parse_screen(screen)
+                    if RB.game_over():
+                        return [], -1, -1
                 RB.send_command(command[prevdir])
                 screen = RB.get_screen()
                 # Screenprint(screen)
                 FrameInfo = RBParser.parse_screen(screen)
-                if RB.game_over():
-                    return [], -1, -1, -1
-                while wrongscreen():
+                if FrameInfo.get_player_pos() == None:
+                    # print("Warning! player_pos type is NoneType!")
                     screen_refresh()
+                    screen = RB.get_screen()
+                    FrameInfo = RBParser.parse_screen(screen)
+                    if RB.game_over():
+                        return [], -1, -1
                 LastY, LastX = FrameInfo.get_player_pos()
                 LastY += 1
             break
@@ -1088,7 +742,8 @@ def RightMethod(playery, playerx):
     # print("Right Method End!")
     # for i in range(24):
     #    print(screen[i])
-    while wrongscreen():
+    if FrameInfo.get_player_pos() == None:
+        # print("Warning! player_pos type is NoneType!")
         screen_refresh()
     return passage, AfterY, AfterX
 
@@ -1114,12 +769,7 @@ def getleftup(y, x, screen):
     if screen[nowy][nowx] == "|":
         while (
             nowy > 0
-            and (
-                screen[nowy][nowx] == "|"
-                or screen[nowy][nowx] == "+"
-                or screen[nowy][nowx] == "@"
-                or screen[nowy][nowx].isupper()
-            )
+            and (screen[nowy][nowx] == "|" or screen[nowy][nowx] == "+")
             and screen[nowy][nowx + 1] != "-"
             and screen[nowy][nowx + 1] != "+"
         ):
@@ -1135,7 +785,7 @@ def getleftup(y, x, screen):
         ):
             nowx -= 1
             # print(nowx)
-    elif screen[nowy][nowx] == "+" or screen[nowy][nowx].isupper():
+    elif screen[nowy][nowx] == "+":
         if screen[nowy][nowx - 1] == "-":
             while (
                 nowx > 0
@@ -1178,12 +828,7 @@ def getrightbottom(y, x, screen):
     if screen[nowy][nowx] == "|":
         while (
             nowy < 22
-            and (
-                screen[nowy][nowx] == "|"
-                or screen[nowy][nowx] == "+"
-                or screen[nowy][nowx] == "@"
-                or screen[nowy][nowx].isupper()
-            )
+            and (screen[nowy][nowx] == "|" or screen[nowy][nowx] == "+")
             and screen[nowy][nowx - 1] != "-"
             and screen[nowy][nowx - 1] != "+"
         ):
@@ -1197,7 +842,7 @@ def getrightbottom(y, x, screen):
             and screen[nowy - 1][nowx] != "+"
         ):
             nowx += 1
-    elif screen[nowy][nowx] == "+" or screen[nowy][nowx].isupper():
+    elif screen[nowy][nowx] == "+":
         if screen[nowy][nowx + 1] == "-":
             while (
                 nowx < 80
@@ -1231,11 +876,7 @@ def getdoorList(LeftupY, LeftupX, screen):
         nowx <= 80 and screen[nowy][nowx + 1] != " " and screen[nowy][nowx + 1] != "#"
     ):
         nowx += 1
-        if (
-            screen[nowy][nowx] == "+"
-            or screen[nowy][nowx] == "@"
-            or screen[nowy][nowx].isupper()
-        ):
+        if screen[nowy][nowx] == "+" or screen[nowy][nowx].isupper():
             doorList.append(DoorInfo(id, nowy, nowx, False, [], False))
             id += 1
         if screen[nowy + 1][nowx] == "|" or screen[nowy + 1][nowx] == "+":
@@ -1246,11 +887,7 @@ def getdoorList(LeftupY, LeftupX, screen):
         nowy <= 22 and screen[nowy + 1][nowx] != " " and screen[nowy + 1][nowx] != "#"
     ):
         nowy += 1
-        if (
-            screen[nowy][nowx] == "+"
-            or screen[nowy][nowx] == "@"
-            or screen[nowy][nowx].isupper()
-        ):
+        if screen[nowy][nowx] == "+" or screen[nowy][nowx].isupper():
             doorList.append(DoorInfo(id, nowy, nowx, False, [], False))
             id += 1
         if screen[nowy][nowx - 1] == "-" or screen[nowy][nowx - 1] == "+":
@@ -1259,11 +896,7 @@ def getdoorList(LeftupY, LeftupX, screen):
     # 左へ
     while nowx >= 0 and screen[nowy][nowx - 1] != " " and screen[nowy][nowx - 1] != "#":
         nowx -= 1
-        if (
-            screen[nowy][nowx] == "+"
-            or screen[nowy][nowx] == "@"
-            or screen[nowy][nowx].isupper()
-        ):
+        if screen[nowy][nowx] == "+" or screen[nowy][nowx].isupper():
             doorList.append(DoorInfo(id, nowy, nowx, False, [], False))
             id += 1
         if screen[nowy - 1][nowx] == "|" or screen[nowy - 1][nowx] == "+":
@@ -1272,11 +905,7 @@ def getdoorList(LeftupY, LeftupX, screen):
     # 上へ
     while nowy >= 1 and screen[nowy - 1][nowx] != " " and screen[nowy - 1][nowx] != "#":
         nowy -= 1
-        if (
-            screen[nowy][nowx] == "+"
-            or screen[nowy][nowx] == "@"
-            or screen[nowy][nowx].isupper()
-        ):
+        if screen[nowy][nowx] == "+" or screen[nowy][nowx].isupper():
             doorList.append(DoorInfo(id, nowy, nowx, False, [], False))
             id += 1
         if screen[nowy][nowx + 1] == "-" or screen[nowy][nowx + 1] == "+":
@@ -1285,23 +914,17 @@ def getdoorList(LeftupY, LeftupX, screen):
     return doorList
 
 
-def NotvisitedDoorCheck(nowRoomID, playery, playerx):
-    global RoomInfoList
-    mindist = 1000
+def NotvisitedDoorCheck(nowRoomID):
     goDoorid = -1
     DoorX = -1
     DoorY = -1
     for i in range(len(RoomInfoList[nowRoomID].doorlist)):
-        doordist = math.sqrt(
-            (RoomInfoList[nowRoomID].doorlist[i].Y - playery) ** 2
-            + (RoomInfoList[nowRoomID].doorlist[i].X - playerx) ** 2
-        )
-        if RoomInfoList[nowRoomID].doorlist[i].visited is False and doordist < mindist:
+        if RoomInfoList[nowRoomID].doorlist[i].visited == False:
             # print("Door ID" + str(RoomInfoList[nowRoomID].doorlist[i].id) + " not Visited!")
-            doordist = mindist
             goDoorid = i
             DoorX = RoomInfoList[nowRoomID].doorlist[i].X
             DoorY = RoomInfoList[nowRoomID].doorlist[i].Y
+            break
     return goDoorid, DoorX, DoorY
 
 
@@ -1309,7 +932,6 @@ def GotoObject(nowRoomID, aimY, aimX, object):
     global GlobalStackCheck
     global Getitemnum
     global FrameInfo
-    global now_inventory
     if object == "%" and RoomInfoList[nowRoomID].stairexisted == False:
         return False
     # 階段のところまで地道にいき、階段にたどり着いたら階段を降りる。
@@ -1322,14 +944,16 @@ def GotoObject(nowRoomID, aimY, aimX, object):
     while True:
         screen = RB.get_screen()
         FrameInfo = RBParser.parse_screen(screen)
-        if RB.game_over():
-            return False
-        while wrongscreen():
+        if FrameInfo.get_player_pos() == None:
+            # PlayerY,PlayerX= FrameInfo.get_player_pos()
+            # PlayerY+=1
+            # else:
             screen_refresh()
         if demoplay_mode:
             Screenprint(screen)
             sleep(0.05)
-        CloseCombatinroom(nowRoomID)
+        if RB.game_over():
+            return False
         PlayerY, PlayerX = FrameInfo.get_player_pos()
         PlayerY += 1
         if PlayerY != aimY or PlayerX != aimX:
@@ -1457,9 +1081,6 @@ def GotoObject(nowRoomID, aimY, aimX, object):
                 break
         else:
             break
-    while wrongscreen():
-        screen_refresh()
-    """
     if FrameInfo.get_player_pos() == None:
         # screen=RB.get_screen()
         screen_refresh()
@@ -1469,15 +1090,11 @@ def GotoObject(nowRoomID, aimY, aimX, object):
         screen = RB.get_screen()
         # Screenprint(screen)
         return False
-    """
     if object == "%":
         RB.send_command(">")
     else:
         Getitemnum += 1
         RB.send_command(",")
-        now_inventory = CheckInventory()
-        # print(now_inventory)
-        IntelisenseItemuse(dir=-1, enemynum=0, priority="Use")
     return True
 
 
@@ -1495,22 +1112,24 @@ def GotoDoor(nowRoomID, goDoorid, DoorY, DoorX):
     while True:
         screen = RB.get_screen()
         FrameInfo = RBParser.parse_screen(screen)
-        if RB.game_over():
-            return -1, -1
-        while wrongscreen():
+        if FrameInfo.get_player_pos() == None:
             screen_refresh()
+            # PlayerY,PlayerX= FrameInfo.get_player_pos()
+            # PlayerY+=1
         if demoplay_mode:
             Screenprint(screen)
             sleep(0.05)
-        screen = RB.get_screen()
+        # else:
+        # screen_refresh()
+        if RB.game_over():
+            return -1, -1
         PlayerY, PlayerX = FrameInfo.get_player_pos()
         PlayerY += 1
-        CloseCombatinroom(nowRoomID)
         # print("Player(Y,X):({0},{1})".format(PlayerY,PlayerX))
         # Screenprint(screen)
         if PlayerY != DoorY or PlayerX != DoorX:
-            if RB.game_over() is True:
-                return -1, -1
+            if RB.game_over() == True:
+                break
             stackcheck += 1
             if (
                 PlayerX < DoorX
@@ -1618,9 +1237,7 @@ def GotoDoor(nowRoomID, goDoorid, DoorY, DoorX):
                 break
         else:
             break
-    if RB.game_over() is True:
-        return -1, -1
-    while wrongscreen():
+    if FrameInfo.get_player_pos() == None:
         screen_refresh()
 
     return PlayerY, PlayerX
@@ -1684,7 +1301,10 @@ def debug_print(nowRoomID, goDoorid):
 
 def screen_refresh():
     global FrameInfo
+    screen = RB.get_screen()
+    # Screenprint(screen)
     RB.send_command("i")
+    sleep(RB.busy_wait_seconds * 2)
     screen = RB.get_screen()
     # Screenprint(screen)
     FrameInfo = RBParser.parse_screen(screen)
@@ -1700,18 +1320,17 @@ def move(passage):
     while i < len(passage):
         screen = RB.get_screen()
         FrameInfo = RBParser.parse_screen(screen)
-        if RB.game_over():
-            return
-        while wrongscreen():
+        if FrameInfo.get_player_pos() == None:
             screen_refresh()
+            if RB.game_over():
+                return
         if demoplay_mode:
             Screenprint(screen)
             sleep(0.05)
         PlayerY, PlayerX = FrameInfo.get_player_pos()
         PlayerY += 1
         if screen[PlayerY + dy[passage[i]]][PlayerX + dx[passage[i]]].isupper():
-            CloseCombatinpassage()
-            # RB.send_command(command[passage[i]])
+            RB.send_command(command[passage[i]])
             continue
         RB.send_command(command[passage[i]])
         i += 1
@@ -1732,10 +1351,8 @@ def explore(nowRoomID, GoDoorID, Beforepassagecount, playery, playerx):
     RoomInfoList[nowRoomID].doorlist[goDoorid].visited = True
     # 扉までついたら,右手法に従って通路を進んでもらう.
     # 通路を実際に進むところは丸ごとRightMethod内で行なっている
-    Passage, ArrivalDoory, ArrivalDoorx, Prevdir = RightMethod(playery, playerx)
-    if ExploreStack is True:
-        print("Explore Stack...")
-        sleep(3)
+    Passage, ArrivalDoory, ArrivalDoorx = RightMethod(playery, playerx)
+    if ExploreStack == True:
         GlobalStackCheck = True
         return [-1]
     # 右手法が終わった後,辿ってきた経路について...
@@ -1751,15 +1368,13 @@ def explore(nowRoomID, GoDoorID, Beforepassagecount, playery, playerx):
         FrameInfo = RBParser.parse_screen(screen)
         if RB.game_over():
             return [-1]
-        while wrongscreen():
+        if FrameInfo.get_player_pos() == None:
             screen_refresh()
         if demoplay_mode:
             Screenprint(screen)
             sleep(0.05)
         PlayerY, PlayerX = FrameInfo.get_player_pos()
         PlayerY += 1
-        PlayerY += dy[Prevdir]
-        PlayerX += dx[Prevdir]
         goRoomid = checkVisited(PlayerY, PlayerX)
         if goRoomid == nowRoomID:
             RoomInfoList[nowRoomID].doorlist[goDoorid].useless = True
@@ -1772,8 +1387,6 @@ def explore(nowRoomID, GoDoorID, Beforepassagecount, playery, playerx):
             reversePassage[r] = (reversePassage[r] + 2) % 4
         getDoorid = -1
         RoomInfoMake(PlayerY, PlayerX, screen, goRoomid, (getDoorid, reversePassage))
-        CloseCombatinroom(goRoomid)
-        RB.send_command(command[Prevdir])
         for d in range(len(RoomInfoList[goRoomid].doorlist)):
             doorY = RoomInfoList[goRoomid].doorlist[d].Y
             doorX = RoomInfoList[goRoomid].doorlist[d].X
@@ -1898,153 +1511,26 @@ def demoplay_learned_genome(genome_config):
                     battle_field.append((idx, c1.fitness))
                 idx += 1
     first_front, paretofront_indices = sortNondominated2(
-        battle_field, len(battle_field), False
+        battle_field, len(battle_field), True
     )
     # print(len(networks1))
     # print(len(networks2))
     # print(first_front)
     # print(first_idx)
     print(paretofront_indices[0])
-    for rank in range(len(paretofront_indices)):
-        # elite_networks.append([])
-        for idx in paretofront_indices[rank]:
-            # elite_networks[-1].append(all_networks[idx])
-            elite_networks.append(all_networks[idx])
+    for idx in paretofront_indices[0]:
+        elite_networks.append(all_networks[idx])
     print(elite_networks)
-    # elite_networks_fitnesses = [[]]
     elite_networks_fitnesses = [[]]
-    """
-    for rank in range(len(elite_networks)):
-        # elite_networks_fitnesses.append([])
-        for net in elite_networks[rank]:
-            # elite_networks_fitnesses[-1].append(net.fitness)
-            elite_networks_fitnesses.append(net.fitness)
-    """
     for net in elite_networks:
-        elite_networks_fitnesses[-1].append(net.fitness)
+        elite_networks_fitnesses[0].append(net.fitness)
     print(elite_networks_fitnesses)
     neat.visualize.plot_stats3D(
         150,
         elite_networks_fitnesses,
-        filename="RNSGA2_elite_networks_fitness",
-        title="30 trials 150 Gen all network fitnesses",
+        filename="RNSGA2_elite_netoworks_fitness",
+        title="Gen 150 elite network fitnesses",
     )
-    ref_points = [[1.0, 1.0, 1.0], [1.0, 1.0, 0], [0, 1.0, 1.0]]
-    np_ref_points = np.array(ref_points, dtype=float)
-    elite_networks_np_fitnesses = np.array(
-        [fitness for fitness in elite_networks_fitnesses[0]]
-    )
-    print(elite_networks_np_fitnesses.shape)
-    dist_to_ref_points = calc_norm_pref_distance(
-        elite_networks_np_fitnesses, np_ref_points
-    )
-    dist_to_ref_points_rank = np.argmin(dist_to_ref_points, axis=1)
-    print(dist_to_ref_points_rank)
-    ref_points_cluster_fitnesses = [[] for i in range(len(ref_points))]
-    ref_points_cluster_networks = [[] for i in range(len(ref_points))]
-    print(ref_points_cluster_fitnesses)
-    for idx in range(len(elite_networks_fitnesses[0])):
-        ref_points_cluster_fitnesses[dist_to_ref_points_rank[idx]].append(
-            elite_networks_fitnesses[0][idx]
-        )
-        ref_points_cluster_networks[dist_to_ref_points_rank[idx]].append(
-            (idx, elite_networks[idx])
-        )
-    balance_networks, balance_indices = sortNondominated2(
-        ref_points_cluster_networks[0], 15
-    )
-    stairs_networks, stairs_indices = sortNondominated2(
-        ref_points_cluster_networks[1], 15
-    )
-    item_networks, item_indices = sortNondominated2(ref_points_cluster_networks[2], 15)
-    print(balance_networks)
-    for front in balance_networks:
-        assignCrowdingDist(front)
-    balance_chosen = list(chain(*balance_networks[:-1]))
-    k = 15 - len(balance_chosen)
-    if k > 0:
-        # sorted_front = sorted(pareto_fronts[-1], attrgetter("crowding_dist"), reverse=True)
-        sorted_front = sorted(
-            balance_networks[-1], key=lambda x: x[1].crowding_dist, reverse=True
-        )
-        balance_chosen.extend(sorted_front[:k])
-    for front in stairs_networks:
-        assignCrowdingDist(front)
-    stairs_chosen = list(chain(*stairs_networks[:-1]))
-    k = 15 - len(stairs_chosen)
-    if k > 0:
-        # sorted_front = sorted(pareto_fronts[-1], attrgetter("crowding_dist"), reverse=True)
-        sorted_front = sorted(
-            stairs_networks[-1], key=lambda x: x[1].crowding_dist, reverse=True
-        )
-        stairs_chosen.extend(sorted_front[:k])
-    for front in item_networks:
-        assignCrowdingDist(front)
-    item_chosen = list(chain(*item_networks[:-1]))
-    k = 15 - len(item_chosen)
-    if k > 0:
-        # sorted_front = sorted(pareto_fronts[-1], attrgetter("crowding_dist"), reverse=True)
-        sorted_front = sorted(
-            item_networks[-1], key=lambda x: x[1].crowding_dist, reverse=True
-        )
-        item_chosen.extend(sorted_front[:k])
-    print("item_chosen")
-    print(item_chosen)
-    print("balance_chosen")
-    print(balance_chosen)
-    top90_3strategy_networks_fitnesses = [[] for i in range(len(ref_points))]
-    for idx, _ in balance_chosen:
-        top90_3strategy_networks_fitnesses[0].append(
-            # elite_networks_fitnesses[0][ref_points_cluster_networks[0][idx][0]]
-            elite_networks_fitnesses[0][idx]
-        )
-    for idx, _ in stairs_chosen:
-        top90_3strategy_networks_fitnesses[1].append(
-            # elite_networks_fitnesses[0][ref_points_cluster_networks[1][idx][0]]
-            elite_networks_fitnesses[0][idx]
-        )
-    for idx, _ in item_chosen:
-        top90_3strategy_networks_fitnesses[2].append(
-            # elite_networks_fitnesses[0][ref_points_cluster_networks[2][idx][0]]
-            elite_networks_fitnesses[0][idx]
-        )
-    neat.visualize.plot_stats3D(
-        150,
-        ref_points_cluster_fitnesses,
-        filename="3strategy_networks_fitness",
-        title="3 strategy networks fitnesses",
-    )
-    neat.visualize.plot_stats3D(
-        150,
-        top90_3strategy_networks_fitnesses,
-        filename="top45_3strategy_networks_fitness",
-        title="Top 45 3 strategy networks fitnesses",
-    )
-
-    balance_networks = get_reference_neighobor_points(
-        elite_networks, [1.0, 1.0, 1.0], 15
-    )
-    noitem_networks = get_reference_neighobor_points(elite_networks, [1.0, 1.0, 0], 15)
-    nostairs_networks = get_reference_neighobor_points(
-        elite_networks, [0, 1.0, 1.0], 15
-    )
-    three_strategy_networks = []
-    three_strategy_networks.append([])
-    for net in balance_networks:
-        three_strategy_networks[-1].append(net.fitness)
-    three_strategy_networks.append([])
-    for net in noitem_networks:
-        three_strategy_networks[-1].append(net.fitness)
-    three_strategy_networks.append([])
-    for net in nostairs_networks:
-        three_strategy_networks[-1].append(net.fitness)
-    print(three_strategy_networks)
-    # neat.visualize.plot_stats3D(
-    #    150,
-    #    three_strategy_networks,
-    #    filename="3_strategy_networks_fitness",
-    #    title="3 strategy networks fitnesses",
-    # )
     max_down = 0
     min_room = 100
     min_item = 100
@@ -2069,55 +1555,6 @@ def demoplay_learned_genome(genome_config):
         RogueTrying(net, True)
 
 
-def calc_norm_pref_distance(A, B, weights=None):
-    if weights is None:
-        weights = np.full(len(A[0]), 1 / len(A[0]))
-    D = np.repeat(A, B.shape[0], axis=0) - np.tile(B, (A.shape[0], 1))
-    N = (D ** 2) * weights
-    N = np.sqrt(np.sum(N, axis=1) * len(weights))
-    return np.reshape(N, (A.shape[0], B.shape[0]))
-
-
-def assignCrowdingDist(individuals):
-
-    if len(individuals) == 0:
-        return
-
-    distances = [0.0] * len(individuals)
-    crowd = [(ind[1].fitness, i) for i, ind in enumerate(individuals)]
-
-    nobj = len(individuals[0][1].fitness)
-
-    for i in range(nobj):
-        crowd.sort(key=lambda element: element[0][i])
-        distances[crowd[0][1]] = float("inf")
-        distances[crowd[-1][1]] = float("inf")
-        if crowd[-1][0][i] == crowd[0][0][i]:
-            continue
-        norm = nobj * float(crowd[-1][0][i] - crowd[0][0][i])
-        for prev, cur, next in zip(crowd[:-2], crowd[1:-1], crowd[2:]):
-            distances[cur[1]] += (next[0][i] - prev[0][i]) / norm
-
-    for i, dist in enumerate(distances):
-        individuals[i][1].crowding_dist = dist
-
-
-def get_reference_neighobor_points(individuals, ref_point, outnum):
-    indsfitness = []
-    ret_networks = []
-    for i, net in enumerate(individuals):
-        ref_dist = 0.0
-        for d in range(len(ref_point)):
-            ref_dist += (net.fitness[d] - ref_point[d]) ** 2
-        ref_dist = math.sqrt(ref_dist)
-        indsfitness.append((i, ref_dist))
-    indsfitness.sort(key=lambda x: x[1])
-    print(indsfitness)
-    for i in range(outnum):
-        ret_networks.append(individuals[indsfitness[i][0]])
-    return ret_networks
-
-
 def RogueTrying(net, demo=False):
     fitness = [0.0, 0.0, 0.0]
     priority_fitness = 0.0
@@ -2125,7 +1562,6 @@ def RogueTrying(net, demo=False):
     global ExploreActnum
     global PrevAct
     global FrameInfo
-    global now_inventory
     global demoplay_mode
     demoplay_mode = demo
     for _ in range(run_neat_base.n):
@@ -2146,23 +1582,11 @@ def RogueTrying(net, demo=False):
         # inputs = inputs.flatten()
         # inputs = inputs.reshape(inputs.size,1)
         nowRoomID = 0
-        screen_refresh()
         screen = RB.get_screen()
         FrameInfo = RBParser.parse_screen(screen)
-        if demoplay_mode:
-            Screenprint(screen)
-            sleep(0.005)
         # action = eval_network(net, inputs)
-        if RB.game_over() is True:
-            # print("Game Over.")
-            fitness = [
-                x + y
-                for (x, y) in zip(fitness, [-1.0, maxRoomID / 5.0, Getitemnum / 6.0])
-            ]
-            break
-        while wrongscreen():
+        if FrameInfo.get_player_pos() == None:
             screen_refresh()
-        screen = RB.get_screen()
         Playery, Playerx = FrameInfo.get_player_pos()
         Playery += 1
         done = False
@@ -2171,29 +1595,20 @@ def RogueTrying(net, demo=False):
             t += 1
             # RogueBoxオブジェクトを呼び出すときは,env.unwrapped.rb
             screen = RB.get_screen()
-            if RB.game_over() == True:
-                # print("Game Over.")
-                fitness = [
-                    x + y
-                    for (x, y) in zip(
-                        fitness, [-1.0, maxRoomID / 5.0, Getitemnum / 6.0]
-                    )
-                ]
-                break
-            while wrongscreen():
+            FrameInfo = RBParser.parse_screen(screen)
+            if FrameInfo.get_player_pos() == None:
                 screen_refresh()
-            screen = RB.get_screen()
+                screen = RB.get_screen()
+            if demoplay_mode:
+                Screenprint(screen)
+                sleep(0.005)
             Playery, Playerx = FrameInfo.get_player_pos()
             Playery += 1
             nowRoomID = checkVisited(Playery, Playerx)
             RoomInfoMake(Playery, Playerx, screen, nowRoomID, (-1, []))
-            if demoplay_mode:
-                Screenprint(screen)
-                sleep(0.005)
-            CloseCombatinroom(nowRoomID)
             # debug_print(nowRoomID,0)
             if StairsFound == False:
-                StairsCheck(nowRoomID)
+                StairsCheck(screen, nowRoomID)
             Prevdis = RoomInfoList[nowRoomID].stairsRoomdis
             Input = MakeInput(nowRoomID, t)
             action = eval_network(net, Input)
@@ -2204,7 +1619,15 @@ def RogueTrying(net, demo=False):
             RoominfoPrint(nowRoomID)
             Screenprint(screen)
             """
-
+            if RB.game_over() == True:
+                # print("Game Over.")
+                fitness = [
+                    x + y
+                    for (x, y) in zip(
+                        fitness, [-1.0, maxRoomID / 5.0, Getitemnum / 6.0]
+                    )
+                ]
+                break
             Safe, Stairdown = ActMethod(action, nowRoomID)
             if GlobalStackCheck == True:
                 # print("Unfortunately Stacking. Retry.")
@@ -2222,21 +1645,13 @@ def RogueTrying(net, demo=False):
                     )
                 ]
                 break
-            while wrongscreen():
-                screen_refresh()
             screen = RB.get_screen()
             FrameInfo = RBParser.parse_screen(screen)
+            if FrameInfo.get_player_pos() == None:
+                screen_refresh()
             Playery, Playerx = FrameInfo.get_player_pos()
             Playery += 1
-            if demoplay_mode:
-                Screenprint(screen)
-                sleep(0.005)
-            if Safe is False:
-                if demoplay_mode:
-                    print("Wrong Act...")
-                    Screenprint(screen)
-                    sleep(0.005)
-                    sleep(1.0)
+            if Safe == False:
                 done = True
             else:
                 RightActnum += 1
@@ -2263,7 +1678,7 @@ def RogueTrying(net, demo=False):
                 break
 
             if "Hungry" in screen and FoodNum > 0:
-                IntelisenseItemuse(-1, 0, "Eat")
+                EatFood()
             nowRoomID = checkVisited(Playery, Playerx)
             if StairsFound == True and RoomInfoList[nowRoomID].stairsRoomdis == 100:
                 StairsRoomdisCheck(nowRoomID, Prevdis)
@@ -2323,8 +1738,6 @@ def Initialize():
     global Getitemnum
     global Defeatmonsnum
     global Moveonlynum
-    global now_inventory
-    global stepcnt
     ExploreStack = False
     GlobalStackCheck = False
     Getitemnum = 0
@@ -2335,12 +1748,10 @@ def Initialize():
     ExploreActnum = 0
     StairsFound = False
     maxRoomID = -1
-    now_inventory = None
     RB = run_neat_base.env.unwrapped.rb
     RBParser = RB.parser
     RBParser.reset()
     RoomInfoList.clear()
-    stepcnt = 0
     VisitedRoom = np.array([False] * 15)
     for k in range(15):
         RoomInfoList.append(
@@ -2361,8 +1772,7 @@ def learn(env, config_path, demo_play):
 
 def GotoStairsAct(nowRoomID, screen):
     if RoomInfoList[nowRoomID].stairexisted == True:
-        while wrongscreen():
-            screen_refresh()
+        FrameInfo = RBParser.parse_screen(screen)
         StairsCoord = FrameInfo.get_list_of_positions_by_tile("%")
         (StairsY, StairsX) = StairsCoord[0]
         GotoObject(nowRoomID, StairsY, StairsX, "%")
@@ -2474,13 +1884,8 @@ def CloseFight(Direction):
 def ExploreAct(nowRoomID):
     global Moveonlynum
     global FrameInfo
-    while wrongscreen():
-        screen_refresh()
-    py, px = FrameInfo.get_player_pos()
-    py += 1
-    GoDoorID, GoDoorX, GoDoorY = NotvisitedDoorCheck(nowRoomID, py, px)
-    while wrongscreen():
-        screen_refresh()
+    GoDoorID, GoDoorX, GoDoorY = NotvisitedDoorCheck(nowRoomID)
+    screen_refresh()
     screen = RB.get_screen()
     FrameInfo = RBParser.parse_screen(screen)
     Beforepassagecount = FrameInfo.get_tile_count("#")
@@ -2492,50 +1897,18 @@ def ExploreAct(nowRoomID):
             return False
         Passage = explore(nowRoomID, GoDoorID, Beforepassagecount, py, px)
         if RB.game_over():
-            # print("Game_Over...")
-            # screen = RB.get_screen()
-            # Screenprint(screen)
-            # sleep(3)
             return False
         if len(Passage) > 0 and Passage[0] == -1:
             # print("Can't explore not visited door. End.")
-            # sleep(3)
             return False
         else:
             return True
     else:
-        """
-        for d in range(len(RoomInfoList[nowRoomID].doorlist)):
-            if len(RoomInfoList[nowRoomID].doorlist[d].passagelist) > 0:
-                nxtroom = RoomInfoList[
-                    RoomInfoList[nowRoomID].doorlist[d].passagelist[0].connectroomid
-                ]
-                for nd in range(len(nxtroom.doorlist)):
-                    if not nxtroom.doorlist[nd].visited:
-                        # print("there isn't not visited door, but Go to known room.")
-                        # Screenprint(screen)
-                        GotoKnownRoomAct(nowRoomID, d)
-                        return True
-        """
         return False
-
-
-def wrongscreen():
-    global FrameInfo
-    screen = RB.get_screen()
-    FrameInfo = RBParser.parse_screen(screen)
-    if RB.game_over():
-        return False
-    return FrameInfo.get_player_pos() is None or RB.screen_trouble()
 
 
 def PickupAct(nowRoomID):
-    global FrameInfo
-    while wrongscreen():
-        screen_refresh()
-    py, px = FrameInfo.get_player_pos()
-    py += 1
-    PickupSearch(nowRoomID, py, px)
+    PickupSearch(nowRoomID)
     if not RoomInfoList[nowRoomID].itemList:
         return False
     itemy, itemx, obj = RoomInfoList[nowRoomID].itemList[0]
@@ -2558,28 +1931,26 @@ def ActMethod(action, nowRoomID):
         # if(StairsFound==True):
         # ExtraExplore+=1
         # print("Goto Prev Room!")
-        if demoplay_mode is True:
-            sys.stdout.write("\rGoto Prev Room!\n")
-            sys.stdout.flush()
-            print("\033[1A", end="")
+        sys.stdout.write("\rGoto Prev Room!\n")
+        sys.stdout.flush()
+        print("\033[1A", end="")
         return GotoPrevRoom(nowRoomID, RoomInfoList[nowRoomID].returnPassage), False
     elif action == 1:
         if StairsFound == True:
             ExtraExplore += 1
-        if demoplay_mode is True:
-            sys.stdout.write("\rExplore!\n")
-            sys.stdout.flush()
-            print("\033[1A", end="")
-            sleep(1)
+        # print("Explore!")
+        sys.stdout.write("\rExplore!\n")
+        sys.stdout.flush()
+        print("\033[1A", end="")
+        sleep(1)
         return ExploreAct(nowRoomID), False
     elif action == 2:
         screen = RB.get_screen()
         # print("Fight!")
-        if demoplay_mode is True:
-            sys.stdout.write("\rFight!\n")
-            sys.stdout.flush()
-            print("\033[1A", end="")
-            # sleep(1)
+        sys.stdout.write("\rFight!\n")
+        sys.stdout.flush()
+        print("\033[1A", end="")
+        sleep(1)
         return FightAct(screen, nowRoomID), False
     # elif(action==3):
     # screen=RB.get_screen()
@@ -2588,28 +1959,25 @@ def ActMethod(action, nowRoomID):
     elif action == 3:
         if RoomInfoList[nowRoomID].stairexisted == True:
             # print("GotoStairs!")
-            if demoplay_mode is True:
-                sys.stdout.write("\rGoto Stairs!\n")
-                sys.stdout.flush()
-                print("\033[1A", end="")
-                sleep(1)
+            sys.stdout.write("\rGoto Stairs!\n")
+            sys.stdout.flush()
+            print("\033[1A", end="")
+            sleep(1)
             screen = RB.get_screen()
             return GotoStairsAct(nowRoomID, screen), True
         else:
             # print("GotoStairsRoom!")
-            if demoplay_mode is True:
-                sys.stdout.write("\rGoto Stairs Room!\n")
-                sys.stdout.flush()
-                print("\033[1A", end="")
-                sleep(1)
-            return GotoStairsRoomAct(nowRoomID), False
-    elif action == 4:
-        # print("Pickup item!")
-        if demoplay_mode is True:
-            sys.stdout.write("\rPick up item!\n")
+            sys.stdout.write("\rGoto Stairs!\n")
             sys.stdout.flush()
             print("\033[1A", end="")
             sleep(1)
+            return GotoStairsRoomAct(nowRoomID), False
+    elif action == 4:
+        # print("Pickup item!")
+        sys.stdout.write("\rPick up item!\n")
+        sys.stdout.flush()
+        print("\033[1A", end="")
+        sleep(1)
         return PickupAct(nowRoomID), False
 
 
@@ -2635,13 +2003,8 @@ def sortNondominated2(individuals, k, first_front_only=False, reverse=False):
     if k == 0:
         return []
     fits = []
-    if type(individuals[0][1]) is list:
-        for ind in individuals:
-            fits.append(ind[1])
-    else:
-        for ind in individuals:
-            fits.append(ind[1].fitness)
-
+    for ind in individuals:
+        fits.append(ind[1])
     print(len(fits))
     current_front = []
     next_front = []

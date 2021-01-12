@@ -4,5 +4,6 @@
         "curses.h": "c",
         "*.tcc": "c",
         "sstream": "c"
-    }
+    },
+    "git.ignoreLimitWarning": true
 }

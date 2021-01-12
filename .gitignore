@@ -39,5 +39,10 @@ src
 MUJOCO_LOG.TXT
 
 2020_*
+rogomatic*
+NSGA2*
+RNSGA2*
+NSGA3*
+NSGA2HV*
 
 
